@@ -102,16 +102,16 @@
     "semantic_hash": "14cca2b07d5f783103c971062220c322"
   },
   "README.md": {
-    "mtime": 1792587015.3228304,
-    "seen": 1793733424.9360633,
-    "ast_hash": "098b0022311a001e1948d4a3475f4a3c",
-    "semantic_hash": "098b0022311a001e1948d4a3475f4a3c"
+    "mtime": 1793989432.3731847,
+    "seen": 1793991261.5766943,
+    "ast_hash": "95497b0ba3a91e2c8fb89947f8ec07da",
+    "semantic_hash": "95497b0ba3a91e2c8fb89947f8ec07da"
   },
   "YAPILANLAR.md": {
-    "mtime": 1792587025.412253,
-    "seen": 1793733424.9360774,
-    "ast_hash": "c4d2e06db084b831ae3f2d3b33e68f4f",
-    "semantic_hash": "c4d2e06db084b831ae3f2d3b33e68f4f"
+    "mtime": 1793989470.9781442,
+    "seen": 1793991261.5766954,
+    "ast_hash": "079628fe8a55cb23ea78ca831b34094c",
+    "semantic_hash": "079628fe8a55cb23ea78ca831b34094c"
   },
   "assets/README.md": {
     "mtime": 1791625857.919347,
@@ -174,10 +174,10 @@
     "semantic_hash": "aa9a7948218bf83b9c8dd00c621a35cb"
   },
   "requirements.txt": {
-    "mtime": 1791638593.8700702,
-    "seen": 1791833077.8154235,
-    "ast_hash": "988d33d21a9033dae63567f617643d49",
-    "semantic_hash": "988d33d21a9033dae63567f617643d49"
+    "mtime": 1793989288.6560628,
+    "seen": 1793991261.5766985,
+    "ast_hash": "13955d975562baa47f4dc753b12ec02e",
+    "semantic_hash": "13955d975562baa47f4dc753b12ec02e"
   },
   "scripts/view_mujoco.py": {
     "mtime": 1791834816.3686216,
@@ -526,5 +526,71 @@
     "seen": 1793733424.9360983,
     "ast_hash": "ce4f4f26b5b39689325dfb75603ddd16",
     "semantic_hash": "ce4f4f26b5b39689325dfb75603ddd16"
+  },
+  "scripts/test_voice_command.py": {
+    "mtime": 1793989343.9138796,
+    "seen": 1793991261.576642,
+    "ast_hash": "c331353ca339d146c2a5c99c0a78b414",
+    "semantic_hash": "c331353ca339d146c2a5c99c0a78b414"
+  },
+  "src/mahut_kol/speech/__init__.py": {
+    "mtime": 1793989274.2737908,
+    "seen": 1793991261.576665,
+    "ast_hash": "91a015cd1fc8055951c07c9bf512cd37",
+    "semantic_hash": "91a015cd1fc8055951c07c9bf512cd37"
+  },
+  "src/mahut_kol/speech/audio_recorder.py": {
+    "mtime": 1793989903.6839967,
+    "seen": 1793991261.5766659,
+    "ast_hash": "637d59bc4b345ec441e6c7a1f5a3cc1f",
+    "semantic_hash": "637d59bc4b345ec441e6c7a1f5a3cc1f"
+  },
+  "src/mahut_kol/speech/command_parser.py": {
+    "mtime": 1793989930.6656165,
+    "seen": 1793991261.576667,
+    "ast_hash": "0d09afa2cd10940a0e2c55df0d716beb",
+    "semantic_hash": "0d09afa2cd10940a0e2c55df0d716beb"
+  },
+  "src/mahut_kol/speech/stt_engine.py": {
+    "mtime": 1793989988.7544813,
+    "seen": 1793991261.5766685,
+    "ast_hash": "b4c5bf76e6f5c4aa9c688e4b98498f9e",
+    "semantic_hash": "b4c5bf76e6f5c4aa9c688e4b98498f9e"
+  },
+  "src/mahut_kol/speech/voice_commander.py": {
+    "mtime": 1793989961.95147,
+    "seen": 1793991261.5766697,
+    "ast_hash": "3a187de54edf41d380c2c0369f9ab344",
+    "semantic_hash": "3a187de54edf41d380c2c0369f9ab344"
+  },
+  "tests/test_audio_recorder.py": {
+    "mtime": 1793989088.8471549,
+    "seen": 1793991261.5766797,
+    "ast_hash": "dd824c2fa2b79ff8746ca8ac1aa28bf8",
+    "semantic_hash": "dd824c2fa2b79ff8746ca8ac1aa28bf8"
+  },
+  "tests/test_command_parser.py": {
+    "mtime": 1793989836.7148826,
+    "seen": 1793991261.576681,
+    "ast_hash": "aec34d629c6bc83318fecaedaf8d925b",
+    "semantic_hash": "aec34d629c6bc83318fecaedaf8d925b"
+  },
+  "tests/test_stt_engine.py": {
+    "mtime": 1793989154.6597984,
+    "seen": 1793991261.57669,
+    "ast_hash": "54d4c96019fb7eee30cf57c0cb4c1888",
+    "semantic_hash": "54d4c96019fb7eee30cf57c0cb4c1888"
+  },
+  "tests/test_voice_commander.py": {
+    "mtime": 1793989865.9059255,
+    "seen": 1793991261.5766928,
+    "ast_hash": "5ca50b61d5ae88a99bfdebfb2a9b957f",
+    "semantic_hash": "5ca50b61d5ae88a99bfdebfb2a9b957f"
+  },
+  "docs/superpowers/plans/2026-11-03-turkish-speech-command-parser.md": {
+    "mtime": 1793735518.4697318,
+    "seen": 1793991261.5766969,
+    "ast_hash": "6e32a1fc652bfc6072943e0c97097c0e",
+    "semantic_hash": "6e32a1fc652bfc6072943e0c97097c0e"
   }
 }
