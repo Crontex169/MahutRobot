@@ -7,6 +7,7 @@ CUDA (float16) ve CPU (int8) üzerinde yüksek verimlilikle yerel (offline) çal
 
 from __future__ import annotations
 
+import inspect
 import logging
 import os
 import sys
@@ -17,6 +18,32 @@ import torch
 from faster_whisper import WhisperModel
 
 logger = logging.getLogger(__name__)
+
+# --- Domain sözlüğü (Whisper'ı küçük komut kümesine yönlendirmek için) ---
+# Whisper'ın initial_prompt'u "önceki konuşma" gibi davranır; kelime listesinden
+# çok doğal cümleler daha iyi sonuç verir. 224 token sınırının epey altında tutulur.
+DOMAIN_INITIAL_PROMPT = (
+    "Robot kol komutları. Kırmızı küpü al, yeşil silindirin sağına koy. "
+    "Mavi üçgen prizmayı kaldır, kırmızı küpün soluna bırak. "
+    "Yeşil küpü mavi silindirin önüne yerleştir. Mavi küpü kırmızı prizmanın arkasına taşı. "
+    "Kırmızı silindiri yeşil üçgenin üstüne koy. Mavi silindiri it. "
+    "Renkler: kırmızı, yeşil, mavi. Şekiller: küp, silindir, üçgen prizma. "
+    "Yönler: önüne, arkasına, soluna, sağına, üstüne, üzerine."
+)
+
+# hotwords destekleyen faster-whisper sürümlerinde (>=1.0.2) ek ipucu olarak verilir.
+DOMAIN_HOTWORDS = (
+    "kırmızı yeşil mavi küp küpü silindir silindiri silindirin üçgen prizma prizmayı "
+    "önüne arkasına soluna sağına üstüne üzerine al koy bırak yerleştir taşı it kaldır tut"
+)
+
+
+def _supports_transcribe_kwarg(model: Any, name: str) -> bool:
+    """Yüklü faster-whisper sürümünün transcribe() içinde verilen parametreyi destekleyip desteklemediği."""
+    try:
+        return name in inspect.signature(model.transcribe).parameters
+    except (TypeError, ValueError):
+        return False
 
 
 def resolve_device_and_compute_type(
@@ -52,16 +79,28 @@ class STTEngine:
         compute_type: Optional[str] = None,
         language: str = "tr",
         cpu_threads: int = 4,
+        use_domain_prompt: bool = True,
+        initial_prompt: Optional[str] = None,
+        hotwords: Optional[str] = None,
     ):
+        """
+        use_domain_prompt: True ise transcribe() çağrısına robot komut sözlüğü
+            (renk/şekil/yön/eylem) initial_prompt ve (destekleniyorsa) hotwords olarak verilir.
+        initial_prompt / hotwords: Varsayılan domain metinlerinin yerine kullanılacak özel metinler.
+        """
         self.model_size = model_size
         self.language = language
         self.cpu_threads = cpu_threads
+        self.use_domain_prompt = use_domain_prompt
+        self.initial_prompt = initial_prompt if initial_prompt is not None else DOMAIN_INITIAL_PROMPT
+        self.hotwords = hotwords if hotwords is not None else DOMAIN_HOTWORDS
 
         resolved_device, resolved_compute = resolve_device_and_compute_type(device, compute_type)
         self.device = resolved_device
         self.compute_type = resolved_compute
 
         self.model = self._load_model()
+        self.supports_hotwords = _supports_transcribe_kwarg(self.model, "hotwords")
 
     def _load_model(self) -> WhisperModel:
         """Faster-Whisper modelini yükler. CUDA arızalanırsa zarifçe CPU int8 moduna geçer."""
@@ -90,15 +129,40 @@ class STTEngine:
                 )
             raise e
 
+    def _build_transcribe_kwargs(
+        self,
+        language: str,
+        beam_size: int,
+        vad_filter: bool,
+        use_domain_prompt: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """model.transcribe() parametrelerini hazırlar (domain sözlüğü dahil)."""
+        kwargs: Dict[str, Any] = {
+            "language": language,
+            "beam_size": beam_size,
+            "vad_filter": vad_filter,
+        }
+        enabled = self.use_domain_prompt if use_domain_prompt is None else use_domain_prompt
+        if enabled:
+            if self.initial_prompt:
+                kwargs["initial_prompt"] = self.initial_prompt
+            if self.hotwords and getattr(self, "supports_hotwords", False):
+                kwargs["hotwords"] = self.hotwords
+        return kwargs
+
     def transcribe(
         self,
         audio: Union[str, np.ndarray, bytes],
         language: Optional[str] = None,
         beam_size: int = 5,
         vad_filter: bool = True,
+        use_domain_prompt: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Girdi sesini (dosya yolu veya 16 kHz float32 numpy dizisi) metne dönüştürür.
+
+        use_domain_prompt: None ise motorun varsayılanı (self.use_domain_prompt) kullanılır;
+            False verilirse bu çağrı için domain sözlüğü kapatılır.
         """
         target_lang = language or self.language
 
@@ -124,9 +188,7 @@ class STTEngine:
         try:
             segments, info = self.model.transcribe(
                 audio,
-                language=target_lang,
-                beam_size=beam_size,
-                vad_filter=vad_filter,
+                **self._build_transcribe_kwargs(target_lang, beam_size, vad_filter, use_domain_prompt),
             )
 
             segment_list = list(segments)

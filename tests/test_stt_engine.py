@@ -52,6 +52,61 @@ class TestSTTEngine(unittest.TestCase):
         res = engine.transcribe(np.zeros(0, dtype=np.float32))
         self.assertEqual(res["text"], "")
 
+    def test_domain_prompt_and_hotwords_kwargs(self):
+        """Domain sözlüğü initial_prompt/hotwords olarak iletilmeli ve kapatılabilmeli."""
+        from mahut_kol.speech.stt_engine import DOMAIN_HOTWORDS, DOMAIN_INITIAL_PROMPT
+
+        class FakeModel:
+            def __init__(self):
+                self.kwargs = None
+
+            def transcribe(self, audio, language=None, beam_size=5, vad_filter=True,
+                           initial_prompt=None, hotwords=None):
+                self.kwargs = dict(language=language, initial_prompt=initial_prompt, hotwords=hotwords)
+                return iter([]), type("Info", (), {"language_probability": 1.0, "duration": 1.0})()
+
+        def make_engine(**overrides):
+            # Model indirmeden STTEngine kur
+            engine = STTEngine.__new__(STTEngine)
+            engine.model_size, engine.language = "fake", "tr"
+            engine.device, engine.compute_type = "cpu", "int8"
+            engine.use_domain_prompt = overrides.get("use_domain_prompt", True)
+            engine.initial_prompt, engine.hotwords = DOMAIN_INITIAL_PROMPT, DOMAIN_HOTWORDS
+            engine.model = FakeModel()
+            engine.supports_hotwords = overrides.get("supports_hotwords", True)
+            return engine
+
+        self.assertIn("mavi", DOMAIN_INITIAL_PROMPT)
+        self.assertIn("sağına", DOMAIN_INITIAL_PROMPT)
+
+        engine = make_engine()
+        engine.transcribe(np.ones(1600, dtype=np.float32))
+        self.assertEqual(engine.model.kwargs["initial_prompt"], DOMAIN_INITIAL_PROMPT)
+        self.assertEqual(engine.model.kwargs["hotwords"], DOMAIN_HOTWORDS)
+
+        # Çağrı bazında kapatma
+        engine.transcribe(np.ones(1600, dtype=np.float32), use_domain_prompt=False)
+        self.assertIsNone(engine.model.kwargs["initial_prompt"])
+        self.assertIsNone(engine.model.kwargs["hotwords"])
+
+        # Motor bazında kapatma
+        engine = make_engine(use_domain_prompt=False)
+        engine.transcribe(np.ones(1600, dtype=np.float32))
+        self.assertIsNone(engine.model.kwargs["initial_prompt"])
+
+        # hotwords desteklemeyen sürüm: yalnızca initial_prompt
+        engine = make_engine(supports_hotwords=False)
+        engine.transcribe(np.ones(1600, dtype=np.float32))
+        self.assertEqual(engine.model.kwargs["initial_prompt"], DOMAIN_INITIAL_PROMPT)
+        self.assertIsNone(engine.model.kwargs["hotwords"])
+
+    def test_installed_faster_whisper_supports_hotwords_detection(self):
+        from faster_whisper import WhisperModel
+        from mahut_kol.speech.stt_engine import _supports_transcribe_kwarg
+
+        self.assertTrue(_supports_transcribe_kwarg(WhisperModel, "initial_prompt"))
+        self.assertFalse(_supports_transcribe_kwarg(WhisperModel, "olmayan_parametre"))
+
 
 if __name__ == "__main__":
     unittest.main()
