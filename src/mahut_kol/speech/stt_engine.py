@@ -28,10 +28,10 @@ def resolve_device_and_compute_type(
     CUDA varsa: 'cuda', 'float16'
     CPU için: 'cpu', 'int8'
     """
-    if device is None:
+    if device is None or device.lower() == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    device = device.lower()
+    else:
+        device = device.lower()
 
     if compute_type is None:
         if device == "cuda":

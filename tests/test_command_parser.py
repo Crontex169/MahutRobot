@@ -116,6 +116,25 @@ class TestCommandParser(unittest.TestCase):
         # 'yanına' net bir bağıl yön değil, net relation belirtilmeli
         self.assertFalse(res["valid"])
 
+        # Referans nesne olmadan sadece yön verilen eksik pick_and_place
+        res2 = self.parser.parse("Kırmızı küpü sağına koy")
+        self.assertFalse(res2["valid"])
+        self.assertIn("error", res2)
+
+    def test_relative_locative_suffixes(self):
+        """-ndaki, -ndeki, -undaki vb. aitlik/yön eklerini doğrula."""
+        locative_cases = [
+            ("Mavi küpü al kırmızı silindirin sağındaki slota koy", "RIGHT"),
+            ("Mavi küpü al kırmızı silindirin solundaki alana bırak", "LEFT"),
+            ("Mavi küpü al kırmızı silindirin önündeki yere koy", "FRONT"),
+            ("Mavi küpü al kırmızı silindirin arkasındaki alana bırak", "BACK"),
+            ("Mavi küpü al kırmızı silindirin üstündeki tepeye koy", "TOP"),
+        ]
+        for phrase, expected_rel in locative_cases:
+            cmd = self.parser.parse(phrase)
+            self.assertTrue(cmd["valid"], f"Başarısız ifade: {phrase}, çıktı: {cmd}")
+            self.assertEqual(cmd["relation"], expected_rel)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -75,6 +75,28 @@ class TestVoiceCommander(unittest.TestCase):
         self.assertEqual(transcript, "Kırmızı küpü al yeşil silindirin sağına koy")
         self.assertTrue(cmd["valid"])
 
+    def test_stt_error_propagation(self):
+        """STT hatası olduğunda (örn. CUDA OOM) bu hatanın command nesnesine aktarıldığını doğrula."""
+        class ErrorSTT:
+            def transcribe(self, audio, language="tr"):
+                return {"text": "", "error": "CUDA out of memory", "language": language}
+
+        commander = VoiceCommander(stt_engine=ErrorSTT(), recorder=DummyRecorder())
+        transcript, cmd = commander.process_audio_array(np.zeros(16000, dtype=np.float32))
+        self.assertFalse(cmd["valid"])
+        self.assertIn("STT Hatası", cmd["error"])
+        self.assertIn("CUDA out of memory", cmd["error"])
+
+    def test_interactive_loop_exit_with_turkish_casing(self):
+        """BİTİR veya ÇIKIŞ gibi büyük harfli Türkçe kelimelerin döngüyü sonlandırdığını doğrula."""
+        class ExitSTT:
+            def transcribe(self, audio, language="tr"):
+                return {"text": "BİTİR", "language": language}
+
+        commander = VoiceCommander(stt_engine=ExitSTT(), recorder=DummyRecorder())
+        # Eğer çıkmazsa sonsuz döngüye girer, doğruysa hemen döner
+        commander.run_interactive_loop()
+
 
 if __name__ == "__main__":
     unittest.main()

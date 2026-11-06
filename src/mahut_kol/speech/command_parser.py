@@ -46,11 +46,11 @@ SHAPE_PATTERNS = [
 ]
 
 RELATION_PATTERNS = [
-    (r"\b(ön|on)(ü|üne|ünde|deki)?\b", "FRONT"),
-    (r"\b(arka)(sı|sına|sında|daki)?\b", "BACK"),
-    (r"\b(sol)(u|una|unda|daki)?\b", "LEFT"),
-    (r"\b(sağ|sag)(ı|ına|ında|daki|i|ine|inde)?\b", "RIGHT"),
-    (r"\b(üst|ust|üzer|uzer|tepe)(ü|üne|ünde|i|ine|inde|si|sine)?\b", "TOP"),
+    (r"\b(ön|on)(ü|üne|ünde|deki|ündeki)?\b", "FRONT"),
+    (r"\b(arka)(sı|sına|sında|daki|sındaki)?\b", "BACK"),
+    (r"\b(sol)(u|una|unda|daki|undaki)?\b", "LEFT"),
+    (r"\b(sağ|sag)(ı|ına|ında|daki|i|ine|inde|ındaki|indeki)?\b", "RIGHT"),
+    (r"\b(üst|ust|üzer|uzer|tepe)(ü|üne|ünde|i|ine|inde|si|sine|ündeki|indeki)?\b", "TOP"),
 ]
 
 ACTION_PATTERNS = [
@@ -227,14 +227,13 @@ class CommandParser:
             return result
 
         # İlişki kontrolü
-        # Eğer pick_and_place ise ve referans nesne varsa yön şarttır
+        # Eğer pick_and_place ise hem referans nesne hem yön şarttır
         if action == "pick_and_place":
-            if reference_obj and not relation:
-                result["error"] = f"Hedef referans nesne ({reference_obj}) belirtildi ancak yön (sağına, soluna, önüne vb.) bulunamadı"
+            if not reference_obj:
+                result["error"] = "Hedef referans nesne (örn. yeşil silindirin) belirtilmedi"
                 return result
-            if not reference_obj and not relation:
-                # Sadece 'Kırmızı küpü koy' dendiğinde nereye koyacağı belirsiz
-                result["error"] = "Hedef konum veya referans nesne belirtilmedi"
+            if not relation:
+                result["error"] = f"Hedef referans nesne ({reference_obj}) belirtildi ancak yön (sağına, soluna vb.) bulunamadı"
                 return result
 
         # Sonuçları paketle

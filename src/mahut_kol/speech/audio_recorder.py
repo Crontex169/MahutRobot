@@ -126,7 +126,6 @@ class AudioRecorder:
         print("🔴 Kayıt yapılıyor... (Konuşmanız bitince tekrar ENTER'a basın)")
 
         recorded_chunks: List[np.ndarray] = []
-        stop_event = threading.Event()
 
         def audio_callback(indata, frames, time_info, status):
             if status:
@@ -144,7 +143,6 @@ class AudioRecorder:
         with stream:
             # Arka planda kullanıcı ikinci kez Enter'a basana kadar bekle
             input()
-            stop_event.set()
 
         print("⏹️  Kayıt durduruldu.")
         if not recorded_chunks:
@@ -223,11 +221,10 @@ class AudioRecorder:
             callback=audio_callback,
         )
 
+        start_time = time.time()
         with stream:
-            total_chunks = 0
-            while not state["is_finished"] and total_chunks < max_total_chunks:
+            while not state["is_finished"] and (time.time() - start_time) < max_duration:
                 time.sleep(0.05)
-                total_chunks += 1
 
         print("⏹️  VAD: Konuşma tamamlandı.")
         if not state["recorded_chunks"]:

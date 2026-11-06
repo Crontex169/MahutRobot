@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 import numpy as np
 
 from mahut_kol.speech.audio_recorder import AudioRecorder
-from mahut_kol.speech.command_parser import CommandParser
+from mahut_kol.speech.command_parser import CommandParser, turkish_lower
 from mahut_kol.speech.stt_engine import STTEngine
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,10 @@ class VoiceCommander:
             "device": stt_result.get("device", ""),
             "compute_type": stt_result.get("compute_type", ""),
         }
+        if "error" in stt_result:
+            command["error"] = f"STT Hatası: {stt_result['error']}"
+            command["valid"] = False
+            command["stt_metadata"]["error"] = stt_result["error"]
         return transcript, command
 
     def process_audio_file(self, file_path: str) -> Tuple[str, Dict[str, Any]]:
@@ -73,6 +77,10 @@ class VoiceCommander:
             "device": stt_result.get("device", ""),
             "compute_type": stt_result.get("compute_type", ""),
         }
+        if "error" in stt_result:
+            command["error"] = f"STT Hatası: {stt_result['error']}"
+            command["valid"] = False
+            command["stt_metadata"]["error"] = stt_result["error"]
         return transcript, command
 
     def listen_and_parse(
@@ -117,7 +125,8 @@ class VoiceCommander:
                 transcript, command = self.listen_and_parse(mode=mode)
                 print(f"\n📝 Algılanan Metin: \"{transcript}\"")
 
-                if transcript.lower() in ("çıkış", "bitir", "kapat", "exit", "quit"):
+                norm_exit = turkish_lower(transcript).strip()
+                if norm_exit in ("çıkış", "cikis", "bitir", "kapat", "exit", "quit"):
                     print("👋 Sesli komut dinleyici kapatılıyor...")
                     break
 
