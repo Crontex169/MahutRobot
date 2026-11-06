@@ -37,7 +37,34 @@ Bu proje, özel tasarım bir robotik kol için **ManiSkill** simülasyon ortamı
     *   `datasets/`: Toplanan simülasyon yörüngelerini `LeRobotDataset` formatına çevirici.
     *   `train/`: LeRobot eğitim başlatıcı ve yapılandırma yönetimi.
     *   `eval/`: Eğitilen ağırlıkların simülasyonda test edilmesi ve başarı metriklerinin ölçülmesi.
-*   `scripts/`: URDF doğrulama ve ortam testi için hızlı çalıştırma betikleri.
+    *   `speech/`: Yerel (offline) Türkçe Speech-to-Text (`faster-whisper`), ses yakalama (`sounddevice`) ve kural tabanlı robot komut ayrıştırıcı (`CommandParser`).
+*   `scripts/`: URDF doğrulama, ortam testi ve sesli komut canlı test betikleri.
+
+---
+
+## 🎙️ Yerel (Offline) Türkçe Sesli Komut Modülü
+
+MahutKol, tamamen **ücretsiz, yerel ve hafif** çalışan Türkçe Speech-to-Text ve robot komut ayrıştırma altyapısına sahiptir:
+
+1. **STT Motoru:** `faster-whisper` (CUDA GPU'da `float16`, CPU'da `int8` hesaplama).
+2. **Ses Yakalama:** `sounddevice` + `numpy` (16 kHz, Mono, Push-to-Talk ve VAD).
+3. **Komut Çözücü:** Türkçe dilbilgisi, çekim ekleri ve ManiSkill `MultiShapeRelationalTask` uzamsal ilişkilerine tam uyumlu deterministik parser.
+
+### Hızlı Kullanım ve Test:
+
+```bash
+# 1. Doğrudan metin ile komut ayrıştırma testi:
+python3 scripts/test_voice_command.py --mode text --input-text "Kırmızı küpü al yeşil silindirin sağına koy"
+
+# 2. Mikrofondan Bas-Konuş (Push-to-Talk) canlı test (Enter ile başlat / durdur):
+python3 scripts/test_voice_command.py --mode push_to_talk --model base
+
+# 3. Mikrofondan Sessizlik Tespiti (VAD) ile test:
+python3 scripts/test_voice_command.py --mode vad --model base
+
+# 4. Sürekli döngüde çalıştırma:
+python3 scripts/test_voice_command.py --mode push_to_talk --interactive
+```
 
 ---
 
@@ -56,11 +83,10 @@ Bu proje, özel tasarım bir robotik kol için **ManiSkill** simülasyon ortamı
    ```
 
 3. **Adım Adım Geliştirme Sırası:**
-   - [ ] `assets/README.md` kılavuzunu takip ederek CAD modelinizi URDF'e dönüştürün ve `assets/` altına yerleştirin.
-   - [ ] `scripts/check_urdf.py` ile URDF ve eklem limitlerinizi doğrulayın.
-   - [ ] `src/mahut_kol/robots/mahut_robot.py` dosyasında robot sınıfınızı tamamlayın.
-   - [ ] `src/mahut_kol/envs/pick_place_task.py` ile görevi kurgulayın ve `scripts/test_env.py` ile test edin.
-   - [ ] `Teleoperasyonlar/record_demos.py` ile insan gösterimi (demonstrations) toplayın.
-   - [ ] `src/mahut_kol/datasets/convert_to_lerobot.py` ile veriyi LeRobot formatına dönüştürün.
-   - [ ] `src/mahut_kol/train/train_policy.py` ile ACT veya Diffusion Policy modelini eğitin.
-   - [ ] `src/mahut_kol/eval/evaluate_policy.py` ile eğitilmiş modelin başarı oranını simülasyonda ölçün.
+   - [x] CAD modelinden URDF ve mesh doğrulama tamamlandı.
+   - [x] SO-100 ve MahutKol kinematik PD kazançları yapılandırıldı.
+   - [x] Çok şekilli (`MultiShapeRelationalTask`) 9 nesneli ortam entegre edildi.
+   - [x] Yerel Türkçe Speech-to-Text ve Komut Çözücü modülü (`src/mahut_kol/speech/`) tamamlandı.
+   - [ ] Teleoperasyon ve sesli komutlarla gösterim (demonstration) toplayın.
+   - [ ] LeRobot formatına dönüştürüp ACT/SmolVLA modelini eğitin.
+   - [ ] Eğitilmiş modelin kapalı çevrim başarı oranını simülasyonda ölçün.

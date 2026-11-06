@@ -197,3 +197,27 @@ Bu dosya, projenin başlangıcından bu yana gerçekleştirilen tüm araştırma
   3. **Geriye Dönük Uyumluluk:**
      * `scripts/teleop_maniskill_ps4.py` ve `scripts/test_ps4.py` yönlendirici (forwarder) betikler haline getirildi.
      * `src/mahut_kol/utils/teleop_ps4.py` ve `src/mahut_kol/teleop/` modülleri `Teleoperasyonlar/` paketini dışa aktaracak şekilde köprülendi; mevcut testlerin ve importların kesintisiz çalışması sağlandı.
+
+---
+
+## 14. 🎙️ Yerel (Offline) Türkçe Speech-to-Text ve Robot Komut Çözücü Modülü
+* **Geliştirilen Mimari ve Bileşenler (`src/mahut_kol/speech/`):**
+  1. **Komut Çözücü ve Normalizasyon ([command_parser.py](src/mahut_kol/speech/command_parser.py)):**
+     - Türkçe büyük/küçük harf (`İ`/`i`, `I`/`ı`) normalizasyonu (`turkish_lower`).
+     - Morfolojik ek çözümleme (akkusatif, yönelme, tamlayan ekleri: "küpü", "silindirin", "prizmaya", "sağına", "önüne").
+     - Renkler (`red`, `green`, `blue`), şekiller (`cube`, `cylinder`, `triangular_prism`), uzamsal yönler (`FRONT`, `BACK`, `LEFT`, `RIGHT`, `TOP`) ve eylemler (`pick_and_place`, `pick`, `push`) için deterministik slot extraction kural tabanı.
+     - `multi_shape_task.py` ortamının nesne kimlikleri ve hedef slot formatlarıyla (`green_cylinder_RIGHT` vb.) tam uyumlu JSON çıktısı.
+  2. **Ses Kayıt Modülü ([audio_recorder.py](src/mahut_kol/speech/audio_recorder.py)):**
+     - 16 kHz Mono ses standardı (`sounddevice` + `numpy`).
+     - Hem Bas-Konuş (Push-to-Talk) hem de Enerji Tabanlı Sessizlik Tespiti (VAD) kayıt modları.
+     - Root iznine gerek kalmadan `~/.local/lib/libportaudio.so.2` kütüphanesini otomatik keşfeden PortAudio dinamik bağlama kancası.
+  3. **STT Motoru ([stt_engine.py](src/mahut_kol/speech/stt_engine.py)):**
+     - `faster-whisper` CTranslate2 model sarmalayıcısı (`language="tr"`).
+     - Otomatik donanım seçimi: RTX 4060 GPU üzerinde CUDA `float16`, arıza/OOM durumunda otomatik CPU `int8` fallback desteği.
+  4. **Orkestrasyon Sınıfı ([voice_commander.py](src/mahut_kol/speech/voice_commander.py)):**
+     - Ses yakalama, transkripsiyon ve komut çözümlemeyi tek bir uçtan uca arayüzde birleştiren ana sınıf (`listen_and_parse`, `process_text`, `process_audio_file`, `run_interactive_loop`).
+  5. **Canlı Doğrulama Aracı ([scripts/test_voice_command.py](scripts/test_voice_command.py)):**
+     - CLI üzerinden `--mode text`, `--mode push_to_talk`, `--mode vad` ve `--mode file` seçenekleriyle renkli formatta canlı test aracı.
+* **Test ve Doğrulama:**
+  - 4 yeni birim ve entegrasyon test modülü yazıldı (`test_command_parser.py`, `test_audio_recorder.py`, `test_stt_engine.py`, `test_voice_commander.py`).
+  - Projedeki toplam 71 birim testin tamamı (`python3 -m unittest discover -s tests`) hatasız geçti.
