@@ -20,6 +20,31 @@ from mahut_kol.speech.stt_engine import STTEngine
 logger = logging.getLogger(__name__)
 
 
+def _ask_yes_no(prompt: str) -> bool:
+    """Klavyeden evet/hayır onayı alır (varsayılan: hayır)."""
+    try:
+        answer = input(f"❓ {prompt} [e/H]: ")
+    except EOFError:
+        return False
+    return turkish_lower(answer).strip() in ("e", "evet", "y", "yes")
+
+
+def apply_confirmation(command: Dict[str, Any], confirmed: bool) -> Dict[str, Any]:
+    """needs_confirmation=True olan komutu kullanıcı cevabına göre günceller."""
+    if not command.get("needs_confirmation"):
+        return command
+    details = command.get("details") or {}
+    details["confirmed_by_user"] = confirmed
+    command["details"] = details
+    if confirmed:
+        command["valid"] = True
+        command["needs_confirmation"] = False
+        command["error"] = None
+    else:
+        command["error"] = "Kullanıcı bulanık eşleşmeyi onaylamadı"
+    return command
+
+
 class VoiceCommander:
     """Ses kaydı, transkripsiyon ve robot komut çözümleme orkestratörü."""
 
@@ -111,10 +136,16 @@ class VoiceCommander:
         self,
         callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         mode: str = "push_to_talk",
+        confirm_fn: Optional[Callable[[str], bool]] = None,
     ) -> None:
         """
         Kullanıcı 'çıkış' veya 'bitir' diyene veya Ctrl+C yapana kadar kesintisiz dinleme döngüsü.
+
+        Bulanık eşleşme düşük güvenliyse (needs_confirmation=True) kullanıcıya
+        "Mavi küp mü demek istediniz?" sorusu sorulur; confirm_fn verilmezse klavyeden
+        e/H cevabı beklenir. Onaylanmayan komut callback'e valid=False olarak gider.
         """
+        confirm = confirm_fn or _ask_yes_no
         print("\n" + "=" * 60)
         print("🤖 MahutKol Sesli Komut Dinleme Döngüsü Başlatıldı")
         print("💡 Çıkmak için 'çıkış', 'bitir' deyin veya Ctrl+C tuşlayın.")
@@ -129,6 +160,11 @@ class VoiceCommander:
                 if norm_exit in ("çıkış", "cikis", "bitir", "kapat", "exit", "quit"):
                     print("👋 Sesli komut dinleyici kapatılıyor...")
                     break
+
+                if command.get("needs_confirmation"):
+                    question = command.get("confirmation_prompt") or "Komutu onaylıyor musunuz?"
+                    print(f"🤔 Emin değilim: {question}")
+                    command = apply_confirmation(command, bool(confirm(question)))
 
                 if command["valid"]:
                     print(f"✅ Geçerli Komut: {command['action']} | Nesne: {command['manipulated_object']} | Hedef: {command['target_slot']}")

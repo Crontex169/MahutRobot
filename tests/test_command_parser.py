@@ -136,5 +136,114 @@ class TestCommandParser(unittest.TestCase):
             self.assertEqual(cmd["relation"], expected_rel)
 
 
+class TestFuzzyCommandParser(unittest.TestCase):
+    """STT yazım hatalarına karşı bulanık eşleme yedeği."""
+
+    def setUp(self):
+        self.parser = CommandParser()
+
+    def assertFuzzy(self, cmd, token, matched):
+        matches = cmd["details"].get("fuzzy_matches", [])
+        self.assertTrue(
+            any(m["token"] == token and m["matched"] == matched for m in matches),
+            f"{token}->{matched} bulanık eşleşmesi yok: {matches}",
+        )
+
+    def test_misspelled_color_marvi(self):
+        cmd = self.parser.parse("Marvi küpü kaldır")
+        self.assertTrue(cmd["valid"], cmd)
+        self.assertEqual(cmd["manipulated_object"], "blue_cube")
+        self.assertFuzzy(cmd, "marvi", "mavi")
+        self.assertLess(cmd["confidence"], 1.0)
+        self.assertFalse(cmd["needs_confirmation"])
+
+    def test_misspelled_pick_and_place(self):
+        cmd = self.parser.parse("Marvi küpü al kırmızı silindirin sağına koy")
+        self.assertTrue(cmd["valid"], cmd)
+        self.assertEqual(cmd["action"], "pick_and_place")
+        self.assertEqual(cmd["manipulated_object"], "blue_cube")
+        self.assertEqual(cmd["target_slot"], "red_cylinder_RIGHT")
+        # Mevcut çıktı şeması korunur
+        self.assertEqual(cmd["details"]["manipulated"]["object_id"], "blue_cube")
+
+    def test_misspelled_kirmzi_silindir(self):
+        cmd = self.parser.parse("kırmzı silindiri it")
+        self.assertTrue(cmd["valid"], cmd)
+        self.assertEqual(cmd["action"], "push")
+        self.assertEqual(cmd["manipulated_object"], "red_cylinder")
+        self.assertFuzzy(cmd, "kırmzı", "kırmızı")
+
+    def test_ascii_and_misspelled_yesil_prizma(self):
+        for phrase in ("yesil prizmayı kaldır", "yeşl prizmayı kaldır", "yesil pirizmayı kaldır"):
+            cmd = self.parser.parse(phrase)
+            self.assertTrue(cmd["valid"], f"{phrase}: {cmd}")
+            self.assertEqual(cmd["manipulated_object"], "green_triangular_prism")
+
+    def test_misspelled_shape_and_action(self):
+        cmd = self.parser.parse("yeşil küpü mavi silindrin önüne bırrak")
+        self.assertTrue(cmd["valid"], cmd)
+        self.assertEqual(cmd["action"], "pick_and_place")
+        self.assertEqual(cmd["reference_object"], "blue_cylinder")
+        self.assertEqual(cmd["relation"], "FRONT")
+
+    def test_relation_spelling_variants(self):
+        for word in ("sağına", "sagina", "sağna", "sagına"):
+            cmd = self.parser.parse(f"Mavi küpü al kırmızı silindirin {word} koy")
+            self.assertTrue(cmd["valid"], f"{word}: {cmd}")
+            self.assertEqual(cmd["relation"], "RIGHT")
+            self.assertEqual(cmd["target_slot"], "red_cylinder_RIGHT")
+
+    def test_fuzzy_relation_not_silently_dropped(self):
+        """Kesin çözüm yönü kaçırıp 'pick' üretiyorsa bulanık sonuç tercih edilmeli."""
+        cmd = self.parser.parse("kırmızı küpü al yeşil silindirin üstne koy")
+        self.assertTrue(cmd["valid"], cmd)
+        self.assertEqual(cmd["action"], "pick_and_place")
+        self.assertEqual(cmd["target_slot"], "green_cylinder_TOP")
+
+    def test_unrelated_words_do_not_match(self):
+        for word in ("masa", "masayı", "araba", "arabayı", "bugün", "merhaba", "kalem"):
+            self.assertIsNone(self.parser.match_token(word), word)
+        for phrase in ("masayı al", "arabayı kaldır", "masa araba"):
+            cmd = self.parser.parse(phrase)
+            self.assertFalse(cmd["valid"], f"{phrase}: {cmd}")
+            self.assertFalse(cmd["needs_confirmation"])
+
+    def test_short_words_are_strict(self):
+        """Kısa kökler (al, it, ön, koy, küp) yalnızca ASCII yazım farkını tolere eder."""
+        for word in ("alt", "altına", "köy", "onu", "ona", "kub", "sal"):
+            self.assertIsNone(self.parser.match_token(word), word)
+        # "alt" artık kesin regex'te de pick eylemi sayılmaz
+        self.assertEqual(self.parser.extract_actions("alt"), [])
+        self.assertEqual(self.parser.extract_actions("alana"), [])
+        self.assertEqual([a[0] for a in self.parser.extract_actions("alıp")], ["pick"])
+        # ASCII yazım farkı kabul edilir
+        self.assertEqual(self.parser.match_token("kupu")["value"], "cube")
+        self.assertEqual(self.parser.match_token("onune")["value"], "FRONT")
+
+    def test_low_confidence_needs_confirmation(self):
+        cmd = self.parser.parse("mavo küpü kaldır")
+        self.assertFalse(cmd["valid"])
+        self.assertTrue(cmd["needs_confirmation"])
+        self.assertEqual(cmd["manipulated_object"], "blue_cube")
+        self.assertEqual(cmd["confirmation_prompt"], "Mavi küp mü demek istediniz?")
+        self.assertIn("onay", cmd["error"])
+
+        cmd = self.parser.parse("kırmızı küpü al mavo silindirin sağına koy")
+        self.assertTrue(cmd["needs_confirmation"])
+        self.assertEqual(cmd["confirmation_prompt"], "Mavi silindir mi demek istediniz?")
+
+    def test_exact_commands_unchanged(self):
+        cmd = self.parser.parse("Kırmızı küpü al yeşil silindirin sağına koy")
+        self.assertTrue(cmd["valid"])
+        self.assertEqual(cmd["confidence"], 1.0)
+        self.assertFalse(cmd["needs_confirmation"])
+        self.assertNotIn("fuzzy_matches", cmd["details"])
+
+    def test_fuzzy_can_be_disabled(self):
+        parser = CommandParser(enable_fuzzy=False)
+        cmd = parser.parse("Marvi küpü kaldır")
+        self.assertFalse(cmd["valid"])
+
+
 if __name__ == "__main__":
     unittest.main()

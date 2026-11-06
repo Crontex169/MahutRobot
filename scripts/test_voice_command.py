@@ -68,9 +68,21 @@ def print_command_summary(transcript: str, cmd: dict):
         print(f"  🔹 Bağıl Yön (Relation):         {Colors.BOLD}{cmd.get('relation') or 'Yok'}{Colors.END}")
         print(f"  🔹 Hedef Slot (Target Slot):     {Colors.BOLD}{cmd.get('target_slot') or 'Yok'}{Colors.END}")
         print(f"  🔹 Güven Skoru (Confidence):     {cmd.get('confidence', 1.0) * 100:.0f}%")
+    elif cmd.get("needs_confirmation"):
+        print(f"\n{Colors.YELLOW}{Colors.BOLD}🤔 ONAY GEREKLİ (düşük güvenli bulanık eşleşme):{Colors.END}")
+        print(f"  ❓ {Colors.BOLD}{cmd.get('confirmation_prompt')}{Colors.END}")
+        print(f"  🔹 Önerilen: {cmd.get('action')} | {cmd.get('manipulated_object')} | {cmd.get('target_slot') or 'Yok'}")
+        print(f"  🔹 Güven Skoru (Confidence):     {cmd.get('confidence', 0.0) * 100:.0f}%")
     else:
         print(f"\n{Colors.RED}{Colors.BOLD}❌ GEÇERSİZ VEYA EKSİK KOMUT:{Colors.END}")
         print(f"  ⚠️  Hata Nedeni: {Colors.YELLOW}{cmd.get('error', 'Bilinmeyen hata')}{Colors.END}")
+
+    fuzzy = (cmd.get("details") or {}).get("fuzzy_matches")
+    if fuzzy:
+        print(f"\n{Colors.CYAN}🔎 Bulanık Eşleşmeler:{Colors.END}")
+        for fm in fuzzy:
+            extra = " (belirsiz)" if fm.get("ambiguous") else ""
+            print(f"  '{fm['token']}' → '{fm['matched']}' ({fm['category']}, skor {fm['score']}){extra}")
 
     print(f"\n{Colors.BOLD}JSON Çıktısı (Simülasyona İletilen):{Colors.END}")
     print(json.dumps(cmd, indent=2, ensure_ascii=False))

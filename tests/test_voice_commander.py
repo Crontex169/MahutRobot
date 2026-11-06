@@ -97,6 +97,32 @@ class TestVoiceCommander(unittest.TestCase):
         # Eğer çıkmazsa sonsuz döngüye girer, doğruysa hemen döner
         commander.run_interactive_loop()
 
+    def test_interactive_loop_confirmation(self):
+        """needs_confirmation komutu kullanıcıya sorulmalı; cevaba göre valid güncellenmeli."""
+        class SeqSTT:
+            def __init__(self, texts):
+                self.texts = list(texts)
+
+            def transcribe(self, audio, language="tr"):
+                return {"text": self.texts.pop(0), "language": language}
+
+        for answer in (True, False):
+            received, questions = [], []
+            commander = VoiceCommander(
+                stt_engine=SeqSTT(["mavo küpü kaldır", "bitir"]), recorder=DummyRecorder()
+            )
+
+            def confirm(q):
+                questions.append(q)
+                return answer
+
+            commander.run_interactive_loop(callback=received.append, confirm_fn=confirm)
+            self.assertEqual(questions, ["Mavi küp mü demek istediniz?"])
+            self.assertEqual(len(received), 1)
+            self.assertEqual(received[0]["valid"], answer)
+            self.assertEqual(received[0]["manipulated_object"], "blue_cube")
+            self.assertEqual(received[0]["details"]["confirmed_by_user"], answer)
+
 
 if __name__ == "__main__":
     unittest.main()
