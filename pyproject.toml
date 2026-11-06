@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mahut_kol"
+version = "0.1.0"
+description = "ManiSkill ve LeRobot için özel robot kolu simülasyon ve öğrenme şablonu"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mani_skill>=3.0.0b0",
+    "sapien>=3.0.0b0",
+    "gymnasium>=0.29.1",
+    "torch>=2.2.0",
+    "pyyaml",
+    "trimesh",
+    "numpy<2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

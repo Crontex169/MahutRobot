@@ -1,0 +1,116 @@
+<mujoco model="robot_arm">
+  
+  <compiler angle="radian" />
+  <option integrator="implicitfast" />
+
+  <default>
+    <mesh inertia="exact" />
+    <geom type="mesh" contype="0" conaffinity="0" rgba="0.6 0.6 0.65 1" />
+    <joint damping="0.05" armature="0.005" />
+    
+    <default class="servo_body"><geom mass="0.077" rgba="0.15 0.15 0.15 1" /></default>
+    <default class="finger"><geom contype="1" conaffinity="1" rgba="0.2 0.45 0.8 1" /></default>
+    
+    <default class="arm"><joint range="-1.5708 1.5708" /></default>
+    
+    <default class="gear"><joint range="-5.8333 0" damping="0.00005" armature="0.00001" /></default>
+    <default class="servo"><position kp="20" dampratio="1" forcerange="-3.432 3.432" /></default>
+  </default>
+
+  <asset>
+    <mesh name="part-2-v1" file="meshes/part-2-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="part-5-v1" file="meshes/part-5-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="motor-1-v1" file="meshes/motor-1-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="motor-2-v1" file="meshes/motor-2-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="motor-3-v1" file="meshes/motor-3-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="part-8-v1" file="meshes/part-8-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="motor-4-v1" file="meshes/motor-4-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="part-11-v1" file="meshes/part-11-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="Gripper-v2_RB9.01.062.010-Main-frame_125-follower" file="meshes/Gripper-v2_RB9.01.062.010-Main-frame_125-follower.stl" scale="0.001 0.001 0.001" />
+    <mesh name="Gripper-v2_RB9.01.062.020-Clamp" file="meshes/Gripper-v2_RB9.01.062.020-Clamp.stl" scale="0.001 0.001 0.001" />
+    <mesh name="Gripper-v2_RB9.01.062.030-Gear-rack_m0.8" file="meshes/Gripper-v2_RB9.01.062.030-Gear-rack_m0.8.stl" scale="0.001 0.001 0.001" />
+    <mesh name="Gripper-v2_RB9.01.062.040-Gear-for-gripper_ISO---Spur-gear-0.8M-18T-20PA-5FW----S18B10H8L6.0S1" file="meshes/Gripper-v2_RB9.01.062.040-Gear-for-gripper_ISO---Spur-gear-0.8M-18T-20PA-5FW----S18B10H8L6.0S1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="Gripper-v2_Rod-d6_125" file="meshes/Gripper-v2_Rod-d6_125.stl" scale="0.001 0.001 0.001" />
+    <mesh name="Gripper-v2_Bearing_MF106-10å6å3" file="meshes/Gripper-v2_Bearing_MF106-10å6å3.stl" scale="0.001 0.001 0.001" />
+    <mesh name="Gripper-v2_socket-countersunk-head-screw_din_DIN-7991---M4-x-8-----8N" file="meshes/Gripper-v2_socket-countersunk-head-screw_din_DIN-7991---M4-x-8-----8N.stl" scale="0.001 0.001 0.001" />
+    <mesh name="part-10-v1" file="meshes/part-10-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="motor-5-v1" file="meshes/motor-5-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="part-13-v1" file="meshes/part-13-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="part-12-v1" file="meshes/part-12-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="part-7-v1" file="meshes/part-7-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="part-3-v1" file="meshes/part-3-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="part-4-v1" file="meshes/part-4-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="part-6-v1" file="meshes/part-6-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="part-9-v1" file="meshes/part-9-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="part-1-v1" file="meshes/part-1-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="base_rotate-v1_lazy-susan-100mm-TASIYICI-v1" file="meshes/base_rotate-v1_lazy-susan-100mm-TASIYICI-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="base_rotate-v1_lazy-susan-100mm-UST-SERVO-1-v1" file="meshes/base_rotate-v1_lazy-susan-100mm-UST-SERVO-1-v1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="base_rotate-v1_p_rotate-v2" file="meshes/base_rotate-v1_p_rotate-v2.stl" scale="0.001 0.001 0.001" />
+    <mesh name="base_rotate-v1_p_motor-v3" file="meshes/base_rotate-v1_p_motor-v3.stl" scale="0.001 0.001 0.001" />
+    <mesh name="base_rotate-v1_lazy-susan-100mm-ALT-v1" file="meshes/base_rotate-v1_lazy-susan-100mm-ALT-v1.stl" scale="0.001 0.001 0.001" />
+  </asset>
+
+  <worldbody>
+    <body name="base" pos="0 0 0.0558">
+        <geom mesh="base_rotate-v1_lazy-susan-100mm-ALT-v1" mass="0.10268" pos="-0.00365741 -0.0322925 -0.00978" quat="1 -3.92401e-17 3.46945e-18 7.82543e-17" />
+        <geom mesh="base_rotate-v1_lazy-susan-100mm-TASIYICI-v1" mass="0.0503168" pos="-0.00365741 -0.0322925 -0.0066177" quat="1 -1.20743e-32 3.46945e-18 7.25331e-17" />
+        <geom mesh="base_rotate-v1_p_motor-v3" class="servo_body" pos="0.00620259 -0.0322925 -0.03605" quat="0.707107 0.707107 2.03502e-17 2.33487e-17" />
+      <body name="link0" pos="-0.00365706 -0.0322927 -0.00850048">
+        <joint name="joint0" class="arm" axis="0 -0 1" />
+        <geom mesh="base_rotate-v1_p_rotate-v2" mass="0.00591929" pos="-0.039103 0.0199002 -0.0361235" quat="-1.27925e-14 3.03326e-17 1 1.11022e-16" />
+        <geom mesh="base_rotate-v1_lazy-susan-100mm-UST-SERVO-1-v1" mass="0.172405" pos="-3.56506e-07 2.05536e-07 0.00650048" quat="-2.60209e-16 -1.7022e-17 1 2.19922e-17" />
+        <geom mesh="part-1-v1" mass="0.0149865" pos="-3.56506e-07 0.00550021 0.00850048" quat="-0.707107 -4.4129e-17 7.35682e-17 -0.707107" />
+        <geom mesh="motor-1-v1" class="servo_body" pos="-3.56148e-07 0.00375021 0.0205005" quat="-8.2049e-17 -1.11022e-16 -1 -1.49776e-17" />
+        <body name="link1" pos="0.00986006 0.0312997 0.0205005" quat="0.980066578 0 -0.198669331 0">
+          <joint name="joint1" class="arm" range="0 3.14159" axis="-0 1 0" />
+          <geom mesh="part-2-v1" mass="0.00591929" pos="-0.0438143 -0.0361235 0.00231742" quat="0.183013 0.183013 -0.683013 0.683013" />
+          <geom mesh="part-3-v1" mass="0.0100753" pos="-0.033429 -0.0249995 0.0193" quat="-0.5 -5.43027e-16 -0.866025 4.64439e-16" />
+          <geom mesh="part-4-v1" mass="0.0100753" pos="-0.0368931 -0.0249995 0.0213" quat="0.866025 -5.48084e-16 -0.5 -5.20615e-16" />
+          <geom mesh="part-5-v1" mass="0.00591929" pos="-0.0680043 -0.0361235 0.0844139" quat="0.612372 0.612372 -0.353553 0.353553" />
+          <body name="link2" pos="-0.070322 7.97973e-17 0.0406" quat="0.906300312 0 -0.422634292 0">
+            <joint name="joint2" class="arm" range="-1 1.5708" axis="0 -1 -0" />
+            <geom mesh="motor-2-v1" class="servo_body" pos="0.00971053 -0.0275495 0.00171217" quat="0.996195 1.38778e-16 -0.0871557 -5.27356e-16" />
+            <geom mesh="part-6-v1" mass="0.0149865" pos="0.00762675 -0.0257995 0.0135299" quat="0.0616284 0.704416 0.704416 0.0616284" />
+            <geom mesh="part-7-v1" mass="0.00988529" pos="0.0387624 -0.0257995 0.00683479" quat="0.766044 3.29655e-15 0.642788 1.01112e-15" />
+            <geom mesh="part-8-v1" mass="0.00591929" pos="0.0450366 -0.0369235 -0.0120628" quat="0.0616284 0.0616284 0.704416 -0.704416" />
+            <body name="link3" pos="0.08009 -0.0008 0.014325">
+              <joint name="joint3" class="arm" range="-3.141593 0.0" axis="0 -1 0" />
+              <geom mesh="motor-3-v1" class="servo_body" pos="-0.00971065 -0.0275495 -0.0017122" quat="0.0871557 2.99399e-15 0.996195 2.10942e-15" />
+              <geom mesh="part-9-v1" mass="0.0149865" pos="-0.0117944 -0.0257995 0.0101056" quat="0.0616284 0.704416 0.704416 0.0616284" />
+              <geom mesh="part-10-v1" mass="0.0134361" pos="0.0428624 -0.0317995 0.0197431" quat="-4.05231e-15 0.996195 -2.5225e-14 0.0871557" />
+              <geom mesh="motor-4-v1" class="servo_body" pos="0.0432228 -0.0317995 0.00762139" quat="0.0616284 0.704416 0.704416 0.0616284" />
+              <body name="link4" pos="0.070354 -0.04166 0.012405">
+                <joint name="joint4" class="arm" range="-1.570796 1.570796" axis="0.984808 0 0.173648" />
+                <geom mesh="part-11-v1" mass="0.00591929" pos="-0.0423651 0.0199005 0.0322361" quat="-0.642788 6.16868e-15 0.766044 9.46465e-15" />
+                <geom mesh="part-12-v1" mass="0.0202097" pos="0.0255432 0.00960048 0.0163848" quat="3.7817e-15 -0.996195 2.47871e-14 -0.0871557" />
+                <geom mesh="motor-5-v1" class="servo_body" pos="0.0259035 0.00960048 0.0042631" quat="-0.0616284 -0.704416 -0.704416 -0.0616284" />
+                <geom mesh="Gripper-v2_RB9.01.062.010-Main-frame_125-follower" density="1240" pos="0.0570843 -0.000349522 0.010269" quat="-0.541675 -0.454519 -0.454519 -0.541675" />
+                <geom mesh="Gripper-v2_Rod-d6_125" density="1240" pos="0.0642989 -0.000259525 0.0280925" quat="0.467351 0.530644 0.530644 0.467351" />
+                <geom mesh="Gripper-v2_Rod-d6_125" density="1240" pos="0.0698557 -0.000259525 -0.00342131" quat="-0.368105 0.603737 0.603737 -0.368105" />
+                <geom mesh="Gripper-v2_Bearing_MF106-10å6å3" density="1240" pos="0.0603549 -0.000259525 -0.00712741" quat="-0.0956781 0.673346 0.700604 0.215883" />
+                <geom mesh="Gripper-v2_Bearing_MF106-10å6å3" density="1240" pos="0.0541035 -0.000259525 0.0283257" quat="0.700604 0.215883 0.0956781 -0.673346" />
+                <geom mesh="Gripper-v2_socket-countersunk-head-screw_din_DIN-7991---M4-x-8-----8N" density="1240" pos="0.0631123 -0.000259525 -0.0066412" quat="0.0765143 -0.0417335 0.874563 0.477016" />
+                <geom mesh="Gripper-v2_socket-countersunk-head-screw_din_DIN-7991---M4-x-8-----8N" density="1240" pos="0.056861 -0.000259525 0.0288119" quat="-0.0417335 -0.0765143 -0.477016 0.874563" />
+                <body name="gripper_gear" pos="0.053035 -0.00026 0.009047">
+                  <geom mesh="part-13-v1" mass="0.00591929" pos="-0.0423653 0.0199005 0.0322358" quat="0.642788 -6.46705e-15 -0.766044 -9.3571e-15" />
+                  <geom mesh="Gripper-v2_RB9.01.062.040-Gear-for-gripper_ISO---Spur-gear-0.8M-18T-20PA-5FW----S18B10H8L6.0S1" density="1240" pos="0.00143785 4.75305e-07 0.00106611" quat="0.67855 0.729366 -0.0593654 0.0638112" />
+                </body>
+                <body name="finger_left" pos="0.0670773 0.0517405 0.0123356">
+                  <joint name="finger_left" type="slide" axis="0 -1 0" range="0 0.042" />
+                  <geom mesh="Gripper-v2_RB9.01.062.020-Clamp" class="finger" density="1240" pos="0 0 0" quat="0.541675 0.541675 0.454519 -0.454519" />
+                  <geom mesh="Gripper-v2_RB9.01.062.030-Gear-rack_m0.8" density="1240" pos="-0.00880619 0.007 -0.00764533" quat="0.704416 -0.704416 -0.0616284 -0.0616284" />
+                </body>
+                <body name="finger_right" pos="0.0670773 -0.0522595 0.0123356">
+                  <joint name="finger_right" type="slide" axis="0 1 0" range="0 0.042" />
+                  <geom mesh="Gripper-v2_RB9.01.062.020-Clamp" class="finger" density="1240" pos="0 0 0" quat="-0.454519 0.454519 0.541675 0.541675" />
+                  <geom mesh="Gripper-v2_RB9.01.062.030-Gear-rack_m0.8" density="1240" pos="-0.01089 -0.007 0.00417236" quat="0.704416 0.704416 -0.0616284 0.0616284" />
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  </mujoco>

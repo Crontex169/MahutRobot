@@ -1,0 +1,36 @@
+# Pick & Place Görev Konfigürasyonu (Doğrulanmış scene.xml Uyumlu)
+task:
+  env_id: "MahutKol-PickCube-v1"
+  scene_xml_path: "assets/mahut_kol_scene.xml"
+  max_episode_steps: 300
+  control_freq: 50  # Hz
+  
+  # Kamera Ayarları (LeRobot için gözlem pencereleri)
+  cameras:
+    cam_top:
+      width: 256
+      height: 256
+      fovy: 55
+      position: [0.35, 0.0, 0.35]
+      xyaxes: [0, 1, 0, -0.65, 0, 0.75]
+    cam_wrist:
+      width: 256
+      height: 256
+      fovy: 65
+      attach_to_link: "link4"
+      position: [0.06, 0.0, 0.12]
+      xyaxes: [0, 1, 0, -0.866, 0, 0.5]
+  
+  # Hedef Nesne ve Çalışma Alanı
+  workspace:
+    table:
+      position: [0.15, 0.0, -0.01]
+      size: [0.20, 0.25, 0.01]
+    target_cube:
+      size: [0.03, 0.03, 0.03]
+      mass: 0.015
+      initial_position: [0.14, 0.0, 0.016]
+    target_bin:
+      position: [0.12, -0.16, 0.005]
+      goal_site_position: [0.12, -0.16, 0.015]
+      tolerance: 0.04

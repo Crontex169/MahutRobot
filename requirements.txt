@@ -1,0 +1,29 @@
+# --- Simülasyon & Fizik ---
+mani_skill>=3.0.0b0
+sapien>=3.0.0b0
+gymnasium>=0.29.1
+torch>=2.2.0
+torchvision>=0.17.0
+
+# --- Robot Öğrenmesi & Hugging Face ---
+lerobot>=0.1.0
+datasets
+huggingface_hub
+safetensors
+
+# --- 3D / Kinematik / Mesh İşleme ---
+trimesh>=4.0.0
+# pinocchio>=2.6.0; sys_platform != 'win32'
+coacd  # Konveks mesh ayrıştırma
+scipy
+numpy<2
+
+# --- Konfigürasyon, Görselleştirme & Teleoperasyon ---
+pyyaml
+omegaconf
+hydra-core
+opencv-python
+pygame  # Gamepad ve klavye teleoperasyon arayüzü
+rerun-sdk
+tqdm
+h5py

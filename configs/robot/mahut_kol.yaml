@@ -1,0 +1,38 @@
+# MahutKol Robot Konfigürasyonu (Güncel Model: 5-DOF Kol + Gripper-v2)
+robot:
+  name: "mahut_kol"
+  urdf_path: "assets/urdf/mahut_kol.urdf"
+  mjcf_path: "assets/mahut_kol_robot.xml"
+  maniskill_mjcf_path: "assets/mahut_kol_maniskill.xml"
+  
+  # Eklem Adları (5 Kol Eklemi + 2 Parmak)
+  arm_joint_names:
+    - "joint0"        # Taban Dönüşü (Yaw) [-1.57, +1.57]
+    - "joint1"        # Omuz Eğimi (Pitch) [0.00, +3.14]
+    - "joint2"        # Dirsek Eğimi (Pitch) [-1.00, +1.57]
+    - "joint3"        # Bilek Eğimi (Pitch) [-3.14, 0.00]
+    - "joint4"        # Bilek Dönüşü (Roll) [-1.57, +1.57]
+  
+  gripper_joint_names:
+    - "finger_left"   # Sol Çene (Lineer Slide, 0.0 - 0.042m)
+    - "finger_right"  # Sağ Çene (Lineer Slide, 0.0 - 0.042m)
+    
+  # End-Effector (Uç İşlevci / TCP) Referans Link Adı
+  ee_link_name: "link_gripper_center"
+  
+  # Varsayılan Başlangıç Pozisyonu (joint0, joint1, joint2, joint3, joint4, finger_left, finger_right)
+  default_qpos: [0.0, 0.4, 0.0, 0.0, 0.0, 0.02, 0.02]
+  
+  # Kontrolcü Parametreleri (PD Kazançları)
+  controllers:
+    arm:
+      controller_type: "pd_joint_pos"
+      stiffness: 80.0                  # MJCF class="servo" kp değeri
+      damping: 10.0
+      force_limit: 3.432               # Maksimum tork (Nm)
+    
+    gripper:
+      controller_type: "pd_joint_pos"
+      stiffness: 150.0                 # Gerçekçi malzeme esnekliği kp değeri
+      damping: 15.0                    # Salınım önleyici sönümleme
+      force_limit: 15.0                # Güvenli fiziksel kavrama kuvveti (N)

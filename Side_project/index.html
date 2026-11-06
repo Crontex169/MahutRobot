@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SO-100 WebXR AR Teleoperasyon</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: rgba(17, 24, 39, 0.85);
+            --border-color: rgba(255, 255, 255, 0.12);
+            --text-color: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --clutch-inactive: #1f2937;
+            --clutch-active: #059669;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        /* WebXR Arka Plan Kanvası */
+        #xr-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* DOM Overlay Kapsayıcı */
+        #overlay-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px;
+            pointer-events: auto;
+        }
+
+        /* Üst Panel */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 10px 14px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--accent-red);
+            transition: background-color 0.3s;
+        }
+
+        .dot.connected {
+            background-color: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        .action-btn {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn:active {
+            transform: scale(0.96);
+            background: rgba(239, 68, 68, 0.4);
+        }
+
+        /* Orta Panel: Bilgi ve Başlat Butonu */
+        .middle-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .metrics-card {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 12px 16px;
+            font-size: 13px;
+        }
+
+        .metrics-title {
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .coords-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            text-align: center;
+        }
+
+        .coord-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 6px 4px;
+            border-radius: 8px;
+        }
+
+        .coord-label {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .coord-val {
+            font-family: monospace;
+            font-size: 14px;
+            font-weight: 700;
+            color: #60a5fa;
+        }
+
+        .start-ar-btn {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 14px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .start-ar-btn.hidden {
+            display: none;
+        }
+
+        /* Gripper Kaydırıcı */
+        .slider-card {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 12px 16px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .slider-input {
+            width: 100%;
+            height: 24px;
+            accent-color: var(--accent-blue);
+            cursor: pointer;
+        }
+
+        /* Debriyaj (Clutch) Alanı */
+        .clutch-container {
+            width: 100%;
+            height: 38%;
+            min-height: 180px;
+        }
+
+        .clutch-button {
+            width: 100%;
+            height: 100%;
+            background: var(--clutch-inactive);
+            border: 2px dashed rgba(255, 255, 255, 0.25);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #e5e7eb;
+            transition: all 0.15s ease-out;
+            cursor: pointer;
+            touch-action: none;
+        }
+
+        .clutch-button.active {
+            background: var(--clutch-active);
+            border-color: #a7f3d0;
+            border-style: solid;
+            box-shadow: 0 0 24px rgba(16, 185, 129, 0.5);
+            transform: scale(0.99);
+        }
+
+        .clutch-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .clutch-text {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+
+        .clutch-subtext {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .clutch-button.active .clutch-subtext {
+            color: #d1fae5;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="xr-canvas"></canvas>
+
+    <div id="overlay-container">
+        <!-- Üst Bilgi Çubuğu -->
+        <div class="top-bar">
+            <div class="status-badge">
+                <div class="dot" id="ws-dot"></div>
+                <span id="ws-status">Bağlanıyor...</span>
+            </div>
+            <button class="action-btn" id="btn-reset">↺ Sıfırla (Reset)</button>
+        </div>
+
+        <!-- Orta Göstergeler -->
+        <div class="middle-panel">
+            <button class="start-ar-btn" id="btn-start-ar">
+                <span>🥽 AR Teleop Başlat (ARCore)</span>
+            </button>
+
+            <div class="metrics-card">
+                <div class="metrics-title">
+                    <span>Delta Hareket (Δ Telefon)</span>
+                    <span id="tracking-mode" style="color: #93c5fd;">WebXR Bekleniyor</span>
+                </div>
+                <div class="coords-grid">
+                    <div class="coord-box">
+                        <div class="coord-label">Δ X (Sağ/Sol)</div>
+                        <div class="coord-val" id="val-dx">0.0 cm</div>
+                    </div>
+                    <div class="coord-box">
+                        <div class="coord-label">Δ Y (Yukarı)</div>
+                        <div class="coord-val" id="val-dy">0.0 cm</div>
+                    </div>
+                    <div class="coord-box">
+                        <div class="coord-label">Δ Z (İleri)</div>
+                        <div class="coord-val" id="val-dz">0.0 cm</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gripper Slider -->
+            <div class="slider-card">
+                <div class="slider-header">
+                    <span>Kıskaç (Gripper)</span>
+                    <span id="val-gripper">Kapalı (%0)</span>
+                </div>
+                <input type="range" min="0" max="100" value="0" class="slider-input" id="slider-gripper">
+            </div>
+        </div>
+
+        <!-- Alt Debriyaj Butonu -->
+        <div class="clutch-container">
+            <div class="clutch-button" id="btn-clutch">
+                <div class="clutch-icon">🎮</div>
+                <div class="clutch-text" id="clutch-title">DEBRİYAJ (BASILI TUTUN)</div>
+                <div class="clutch-subtext" id="clutch-desc">Hareket ettirmek için basılı tutun, sabit bırakmak için çekin</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Durum Değişkenleri
+        let ws = null;
+        let xrSession = null;
+        let xrRefSpace = null;
+        let gl = null;
+
+        let isClutchPressed = false;
+        let anchorPos = null;       // [x, y, z]
+        let anchorQuat = null;      // [x, y, z, w]
+        let currentPos = [0, 0, 0];
+        let currentQuat = [0, 0, 0, 1];
+        let gripperValue = 0.0;     // 0.0 (kapalı) - 1.0 (açık)
+
+        // UI Elemanları
+        const wsDot = document.getElementById('ws-dot');
+        const wsStatus = document.getElementById('ws-status');
+        const btnReset = document.getElementById('btn-reset');
+        const btnStartAR = document.getElementById('btn-start-ar');
+        const trackingMode = document.getElementById('tracking-mode');
+        const valDx = document.getElementById('val-dx');
+        const valDy = document.getElementById('val-dy');
+        const valDz = document.getElementById('val-dz');
+        const sliderGripper = document.getElementById('slider-gripper');
+        const valGripper = document.getElementById('val-gripper');
+        const btnClutch = document.getElementById('btn-clutch');
+        const clutchTitle = document.getElementById('clutch-title');
+        const clutchDesc = document.getElementById('clutch-desc');
+        const canvas = document.getElementById('xr-canvas');
+
+        // Titreşim (Haptic Feedback)
+        function vibrate(duration) {
+            if (navigator.vibrate) {
+                try { navigator.vibrate(duration); } catch (e) {}
+            }
+        }
+
+        // WebSocket Bağlantısı
+        function connectWebSocket() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${proto}//${location.host}/ws`;
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                wsDot.classList.add('connected');
+                wsStatus.textContent = "Bağlandı (MuJoCo)";
+            };
+
+            ws.onclose = () => {
+                wsDot.classList.remove('connected');
+                wsStatus.textContent = "Koptu (Tekrar deneniyor...)";
+                setTimeout(connectWebSocket, 1500);
+            };
+
+            ws.onerror = (err) => {
+                console.error("WS Hatası:", err);
+            };
+
+            ws.onmessage = (event) => {
+                // Sunucudan gelen geri bildirimler (opsiyonel)
+            };
+        }
+        connectWebSocket();
+
+        // Veri Gönderme Fonksiyonu
+        function sendTeleopData(deltaPos, deltaEuler, clutch) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const packet = {
+                    type: "teleop",
+                    clutch: clutch,
+                    delta_pos: deltaPos,        // [dx, dy, dz] (metre cinsinden telefon ekseni)
+                    delta_euler: deltaEuler,    // [dpitch, droll, dyaw] (radyan)
+                    raw_pos: currentPos,
+                    raw_quat: currentQuat,
+                    gripper: gripperValue,
+                    timestamp: performance.now()
+                };
+                ws.send(JSON.stringify(packet));
+            }
+        }
+
+        // Gripper Kaydırıcı Dinleyicisi
+        sliderGripper.addEventListener('input', (e) => {
+            const pct = parseInt(e.target.value);
+            gripperValue = pct / 100.0;
+            valGripper.textContent = pct === 0 ? "Kapalı (%0)" : pct === 100 ? "Tam Açık (%100)" : `%${pct}`;
+            if (!xrSession) {
+                // AR oturumu yoksa bile doğrudan gönder
+                sendTeleopData([0, 0, 0], [0, 0, 0], isClutchPressed);
+            }
+        });
+
+        // Reset Butonu
+        btnReset.addEventListener('click', () => {
+            vibrate(50);
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "reset" }));
+            }
+            anchorPos = currentPos ? [...currentPos] : [0, 0, 0];
+            anchorQuat = currentQuat ? [...currentQuat] : [0, 0, 0, 1];
+            valDx.textContent = "0.0 cm";
+            valDy.textContent = "0.0 cm";
+            valDz.textContent = "0.0 cm";
+        });
+
+        // Debriyaj (Clutch) Olayları
+        function startClutch(e) {
+            if (e) e.preventDefault();
+            isClutchPressed = true;
+            anchorPos = [...currentPos];
+            anchorQuat = [...currentQuat];
+            btnClutch.classList.add('active');
+            clutchTitle.textContent = "DEBRİYAJ AKTİF (KONTROL EDİLİYOR)";
+            clutchDesc.textContent = "Robot kolu hareket ediyor!";
+            vibrate(35);
+        }
+
+        function stopClutch(e) {
+            if (e) e.preventDefault();
+            isClutchPressed = false;
+            btnClutch.classList.remove('active');
+            clutchTitle.textContent = "DEBRİYAJ (BASILI TUTUN)";
+            clutchDesc.textContent = "Hareket ettirmek için basılı tutun, sabit bırakmak için çekin";
+            vibrate([20, 20]);
+            // Son hareketi sıfır delta ile gönder
+            sendTeleopData([0, 0, 0], [0, 0, 0], false);
+        }
+
+        btnClutch.addEventListener('pointerdown', startClutch);
+        btnClutch.addEventListener('pointerup', stopClutch);
+        btnClutch.addEventListener('pointercancel', stopClutch);
+
+        // Kuaterniyon Farkı Hesabı
+        function quatDelta(qCur, qAnc) {
+            // qRel = qCur * qAnc_inv
+            // qAnc_inv = [-qx, -qy, -qz, qw]
+            const x1 = qCur[0], y1 = qCur[1], z1 = qCur[2], w1 = qCur[3];
+            const x2 = -qAnc[0], y2 = -qAnc[1], z2 = -qAnc[2], w2 = qAnc[3];
+
+            const x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2;
+            const y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2;
+            const z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2;
+            const w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2;
+
+            // Euler açıları (Pitch, Roll, Yaw)
+            const pitch = Math.asin(Math.max(-1, Math.min(1, 2 * (w * x - y * z))));
+            const roll = Math.atan2(2 * (w * y + x * z), 1 - 2 * (x * x + y * y));
+            const yaw = Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
+
+            return [pitch, roll, yaw];
+        }
+
+        // Poz Güncelleme ve Gönderme Döngüsü
+        function updatePose(x, y, z, qx, qy, qz, qw) {
+            currentPos = [x, y, z];
+            currentQuat = [qx, qy, qz, qw];
+
+            if (!anchorPos) {
+                anchorPos = [...currentPos];
+                anchorQuat = [...currentQuat];
+            }
+
+            if (isClutchPressed) {
+                const dx = currentPos[0] - anchorPos[0];
+                const dy = currentPos[1] - anchorPos[1];
+                const dz = currentPos[2] - anchorPos[2];
+
+                valDx.textContent = (dx * 100).toFixed(1) + " cm";
+                valDy.textContent = (dy * 100).toFixed(1) + " cm";
+                valDz.textContent = (dz * 100).toFixed(1) + " cm";
+
+                const deltaEuler = quatDelta(currentQuat, anchorQuat);
+                sendTeleopData([dx, dy, dz], deltaEuler, true);
+            } else {
+                valDx.textContent = "0.0 cm";
+                valDy.textContent = "0.0 cm";
+                valDz.textContent = "0.0 cm";
+            }
+        }
+
+        // WebXR ARCore Başlatma
+        async function startAR() {
+            if (!navigator.xr) {
+                alert("WebXR API bu tarayıcıda bulunamadı! Lütfen Android Chrome kullanın.");
+                return;
+            }
+
+            const isSupported = await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);
+            if (!isSupported) {
+                alert("ARCore (immersive-ar) desteklenmiyor veya aktif değil!");
+                return;
+            }
+
+            try {
+                gl = canvas.getContext('webgl', { xrCompatible: true });
+                await gl.makeXRCompatible();
+
+                const session = await navigator.xr.requestSession('immersive-ar', {
+                    requiredFeatures: ['local'],
+                    optionalFeatures: ['dom-overlay'],
+                    domOverlay: { root: document.getElementById('overlay-container') }
+                });
+
+                xrSession = session;
+                session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+                xrRefSpace = await session.requestReferenceSpace('local');
+
+                btnStartAR.classList.add('hidden');
+                trackingMode.textContent = "ARCore 6-DoF Aktif 🟢";
+                trackingMode.style.color = "#4ade80";
+
+                session.addEventListener('end', () => {
+                    xrSession = null;
+                    btnStartAR.classList.remove('hidden');
+                    trackingMode.textContent = "WebXR Sonlandı";
+                    trackingMode.style.color = "#f87171";
+                });
+
+                session.requestAnimationFrame(onXRFrame);
+            } catch (err) {
+                console.error("AR Başlatma Hatası:", err);
+                alert("AR Başlatılamadı: " + err.message);
+            }
+        }
+
+        function onXRFrame(time, frame) {
+            if (!xrSession) return;
+            xrSession.requestAnimationFrame(onXRFrame);
+
+            const pose = frame.getViewerPose(xrRefSpace);
+            if (pose) {
+                const pos = pose.transform.position;
+                const orient = pose.transform.orientation;
+                updatePose(pos.x, pos.y, pos.z, orient.x, orient.y, orient.z, orient.w);
+            }
+        }
+
+        btnStartAR.addEventListener('click', startAR);
+
+        // WebXR Destek Kontrolü
+        if (navigator.xr) {
+            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                if (supported) {
+                    trackingMode.textContent = "ARCore Hazır (Başlatın)";
+                } else {
+                    trackingMode.textContent = "AR Desteklenmiyor (Test Modu)";
+                    setupFallbackControls();
+                }
+            }).catch(() => {
+                setupFallbackControls();
+            });
+        } else {
+            setupFallbackControls();
+        }
+
+        // Test ve Geliştirme İçin Dokunmatik/Sanal Fallback
+        function setupFallbackControls() {
+            trackingMode.textContent = "Fallback Test Modu";
+            let touchStartX = 0, touchStartY = 0;
+            window.addEventListener('touchmove', (e) => {
+                if (isClutchPressed && e.touches.length > 0) {
+                    const t = e.touches[0];
+                    if (!touchStartX) { touchStartX = t.clientX; touchStartY = t.clientY; }
+                    const dx = (t.clientX - touchStartX) * 0.001;
+                    const dy = -(t.clientY - touchStartY) * 0.001;
+                    updatePose(dx, dy, 0, 0, 0, 0, 1);
+                }
+            });
+            window.addEventListener('touchend', () => {
+                touchStartX = 0; touchStartY = 0;
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,530 @@
+{
+  "pyproject.toml": {
+    "mtime": 1791638605.0174673,
+    "seen": 1791833077.815378,
+    "ast_hash": "89998ae9c04d707d209be88f6f7fb30f",
+    "semantic_hash": "89998ae9c04d707d209be88f6f7fb30f"
+  },
+  "scripts/check_urdf.py": {
+    "mtime": 1791834335.2687511,
+    "seen": 1791836141.9853456,
+    "ast_hash": "c0ae2e9830822db3ea947646ae4fceef",
+    "semantic_hash": "c0ae2e9830822db3ea947646ae4fceef"
+  },
+  "scripts/teleop_maniskill_ps4.py": {
+    "mtime": 1792586965.9682055,
+    "seen": 1793733424.936013,
+    "ast_hash": "6de479b21913b1ab4eb938ecfecf9659",
+    "semantic_hash": "6de479b21913b1ab4eb938ecfecf9659"
+  },
+  "scripts/test_ps4.py": {
+    "mtime": 1792586970.7333536,
+    "seen": 1793733424.9360144,
+    "ast_hash": "c25bb508e221f4ce48463a7b6663e735",
+    "semantic_hash": "c25bb508e221f4ce48463a7b6663e735"
+  },
+  "src/mahut_kol/__init__.py": {
+    "mtime": 1791625894.1139877,
+    "seen": 1791833077.815389,
+    "ast_hash": "8b0c2346009665d3646fe7ee32a5f452",
+    "semantic_hash": "8b0c2346009665d3646fe7ee32a5f452"
+  },
+  "src/mahut_kol/envs/__init__.py": {
+    "mtime": 1793731810.3720088,
+    "seen": 1793733424.936025,
+    "ast_hash": "a8b14e7b30ce39a17850f606144ddb49",
+    "semantic_hash": "a8b14e7b30ce39a17850f606144ddb49"
+  },
+  "src/mahut_kol/eval/__init__.py": {
+    "mtime": 1791625999.4777324,
+    "seen": 1791833077.8153937,
+    "ast_hash": "b6ab201d0eb135191c5130bae45430e3",
+    "semantic_hash": "b6ab201d0eb135191c5130bae45430e3"
+  },
+  "src/mahut_kol/eval/evaluate_policy.py": {
+    "mtime": 1792084210.0755541,
+    "seen": 1793733424.9360335,
+    "ast_hash": "c38edcd355d06528a692cee8e72fd094",
+    "semantic_hash": "c38edcd355d06528a692cee8e72fd094"
+  },
+  "src/mahut_kol/robots/__init__.py": {
+    "mtime": 1791625902.0998423,
+    "seen": 1791833077.815396,
+    "ast_hash": "3c4a4e657e107e704ab7a587664eab8f",
+    "semantic_hash": "3c4a4e657e107e704ab7a587664eab8f"
+  },
+  "src/mahut_kol/robots/controllers.py": {
+    "mtime": 1791625922.0295792,
+    "seen": 1791833077.8153973,
+    "ast_hash": "61b7c73806b40e815a7ef445d4006634",
+    "semantic_hash": "61b7c73806b40e815a7ef445d4006634"
+  },
+  "src/mahut_kol/robots/mahut_robot.py": {
+    "mtime": 1792063554.2141602,
+    "seen": 1793733424.9360373,
+    "ast_hash": "c0b09165f8033bcee141df2a71784eb7",
+    "semantic_hash": "c0b09165f8033bcee141df2a71784eb7"
+  },
+  "src/mahut_kol/teleop/__init__.py": {
+    "mtime": 1791625947.4855163,
+    "seen": 1791833077.8154,
+    "ast_hash": "2b012582df6719717d8091af947c7b69",
+    "semantic_hash": "2b012582df6719717d8091af947c7b69"
+  },
+  "src/mahut_kol/teleop/record_demos.py": {
+    "mtime": 1792586960.6407478,
+    "seen": 1793733424.93604,
+    "ast_hash": "143eb71cf71e85b9da793f4415bea1eb",
+    "semantic_hash": "143eb71cf71e85b9da793f4415bea1eb"
+  },
+  "src/mahut_kol/teleop/teleop_agent.py": {
+    "mtime": 1792586955.8076823,
+    "seen": 1793733424.9360409,
+    "ast_hash": "a61afed71f8381c2b04d6436d193fd67",
+    "semantic_hash": "a61afed71f8381c2b04d6436d193fd67"
+  },
+  "src/mahut_kol/train/__init__.py": {
+    "mtime": 1791625991.0281248,
+    "seen": 1791833077.8154035,
+    "ast_hash": "c2504c9b267eae29f159b153699e65b2",
+    "semantic_hash": "c2504c9b267eae29f159b153699e65b2"
+  },
+  "src/mahut_kol/train/train_policy.py": {
+    "mtime": 1791625996.8859684,
+    "seen": 1791833077.815405,
+    "ast_hash": "ed8482fb2c2308506509db7c2a2139ee",
+    "semantic_hash": "ed8482fb2c2308506509db7c2a2139ee"
+  },
+  "PROJE_REHBERI.md": {
+    "mtime": 1792586994.2152386,
+    "seen": 1793733424.936062,
+    "ast_hash": "14cca2b07d5f783103c971062220c322",
+    "semantic_hash": "14cca2b07d5f783103c971062220c322"
+  },
+  "README.md": {
+    "mtime": 1792587015.3228304,
+    "seen": 1793733424.9360633,
+    "ast_hash": "098b0022311a001e1948d4a3475f4a3c",
+    "semantic_hash": "098b0022311a001e1948d4a3475f4a3c"
+  },
+  "YAPILANLAR.md": {
+    "mtime": 1792587025.412253,
+    "seen": 1793733424.9360774,
+    "ast_hash": "c4d2e06db084b831ae3f2d3b33e68f4f",
+    "semantic_hash": "c4d2e06db084b831ae3f2d3b33e68f4f"
+  },
+  "assets/README.md": {
+    "mtime": 1791625857.919347,
+    "seen": 1791833077.8154106,
+    "ast_hash": "0ab523f1bdd16cc86695f0946f1f6781",
+    "semantic_hash": "0ab523f1bdd16cc86695f0946f1f6781"
+  },
+  "configs/robot/mahut_kol.yaml": {
+    "mtime": 1792060997.5677004,
+    "seen": 1793733424.93608,
+    "ast_hash": "fd03db5e47422a6b8f360154e84e8720",
+    "semantic_hash": "fd03db5e47422a6b8f360154e84e8720"
+  },
+  "configs/task/pick_place.yaml": {
+    "mtime": 1792084214.6272993,
+    "seen": 1793733424.9360828,
+    "ast_hash": "aebf8efb2a0160941ae46320aeb08f85",
+    "semantic_hash": "aebf8efb2a0160941ae46320aeb08f85"
+  },
+  "configs/train/lerobot_act.yaml": {
+    "mtime": 1791625888.807338,
+    "seen": 1791833077.8154142,
+    "ast_hash": "ae9d87b83ed5b865d732b6b4bb43908d",
+    "semantic_hash": "ae9d87b83ed5b865d732b6b4bb43908d"
+  },
+  "docs/GAMEPAD_TELEOP_GUIDE.md": {
+    "mtime": 1791637149.4677122,
+    "seen": 1791833077.8154156,
+    "ast_hash": "af679aa50f8042f8e717339be632ac72",
+    "semantic_hash": "af679aa50f8042f8e717339be632ac72"
+  },
+  "docs/LEROBOT_GUIDE.md": {
+    "mtime": 1791633149.0948594,
+    "seen": 1791833077.8154168,
+    "ast_hash": "07c931ff449b580fcbb1652630baada6",
+    "semantic_hash": "07c931ff449b580fcbb1652630baada6"
+  },
+  "docs/MAHUTKOL_PIPELINE.md": {
+    "mtime": 1791633156.670075,
+    "seen": 1791833077.815418,
+    "ast_hash": "bb17ebcebd19971313143fd013d56261",
+    "semantic_hash": "bb17ebcebd19971313143fd013d56261"
+  },
+  "docs/MANISKILL_GUIDE.md": {
+    "mtime": 1791633137.2218826,
+    "seen": 1791833077.8154192,
+    "ast_hash": "055f8f7c59cddd181e60b6ecc6b3cd3d",
+    "semantic_hash": "055f8f7c59cddd181e60b6ecc6b3cd3d"
+  },
+  "docs/README.md": {
+    "mtime": 1792060958.0365202,
+    "seen": 1793733424.936087,
+    "ast_hash": "8903fe3ebb4c7e333b08920f031a0e80",
+    "semantic_hash": "8903fe3ebb4c7e333b08920f031a0e80"
+  },
+  "docs/VR_TELEOPERATION_GUIDE.md": {
+    "mtime": 1791636798.9263463,
+    "seen": 1791833077.8154213,
+    "ast_hash": "aa9a7948218bf83b9c8dd00c621a35cb",
+    "semantic_hash": "aa9a7948218bf83b9c8dd00c621a35cb"
+  },
+  "requirements.txt": {
+    "mtime": 1791638593.8700702,
+    "seen": 1791833077.8154235,
+    "ast_hash": "988d33d21a9033dae63567f617643d49",
+    "semantic_hash": "988d33d21a9033dae63567f617643d49"
+  },
+  "scripts/view_mujoco.py": {
+    "mtime": 1791834816.3686216,
+    "seen": 1791836141.9853525,
+    "ast_hash": "de3affbf42ca00111995447b6bc2d15c",
+    "semantic_hash": "de3affbf42ca00111995447b6bc2d15c"
+  },
+  "docs/mahut_kol_maniskill_sim.png": {
+    "mtime": 1791834305.1378262,
+    "seen": 1791836141.9853723,
+    "ast_hash": "7a518499ef0bea4383e58776a2bc0cf9",
+    "semantic_hash": "7a518499ef0bea4383e58776a2bc0cf9"
+  },
+  "docs/mahut_kol_reach.png": {
+    "mtime": 1791834376.9541028,
+    "seen": 1791836141.9853735,
+    "ast_hash": "44ac4e7cfd9c31da41dbddd23b867910",
+    "semantic_hash": "44ac4e7cfd9c31da41dbddd23b867910"
+  },
+  "scripts/collect_demos.py": {
+    "mtime": 1792061116.7701142,
+    "seen": 1793733424.9359937,
+    "ast_hash": "51df39ebdbe05e180c5f809da4b7311a",
+    "semantic_hash": "51df39ebdbe05e180c5f809da4b7311a"
+  },
+  "scripts/eval_policy.py": {
+    "mtime": 1792057604.728931,
+    "seen": 1792059120.2452035,
+    "ast_hash": "df495838f1b12160c612bce2db64d44b",
+    "semantic_hash": "df495838f1b12160c612bce2db64d44b"
+  },
+  "scripts/generate_exact_urdf.py": {
+    "mtime": 1792061053.2605488,
+    "seen": 1793733424.9359965,
+    "ast_hash": "ab37b1335742fb11497c667dc651b902",
+    "semantic_hash": "ab37b1335742fb11497c667dc651b902"
+  },
+  "scripts/load_test.py": {
+    "mtime": 1792057574.4074447,
+    "seen": 1792059120.245206,
+    "ast_hash": "24a26155e6fe8bd7d231d822dd1444cc",
+    "semantic_hash": "24a26155e6fe8bd7d231d822dd1444cc"
+  },
+  "scripts/sim_custom_task.py": {
+    "mtime": 1792063763.177885,
+    "seen": 1793733424.9360106,
+    "ast_hash": "2d8b59965530eb3ce68975c758e71c33",
+    "semantic_hash": "2d8b59965530eb3ce68975c758e71c33"
+  },
+  "scripts/sim_minimal.py": {
+    "mtime": 1792057527.9237738,
+    "seen": 1792059120.2452083,
+    "ast_hash": "f9d3f057e5b507a99aed53c0f5904ce8",
+    "semantic_hash": "f9d3f057e5b507a99aed53c0f5904ce8"
+  },
+  "scripts/test_robot.py": {
+    "mtime": 1792057556.4392333,
+    "seen": 1792059120.2452123,
+    "ast_hash": "2774ee8bf709cfe6d4ba81c1ab5fac48",
+    "semantic_hash": "2774ee8bf709cfe6d4ba81c1ab5fac48"
+  },
+  "scripts/train_smolvla.sh": {
+    "mtime": 1792057595.5419984,
+    "seen": 1792059120.2452137,
+    "ast_hash": "202073a2d152c09ea99735fe64a9eb2f",
+    "semantic_hash": "202073a2d152c09ea99735fe64a9eb2f"
+  },
+  "setup.py": {
+    "mtime": 1791837672.2999737,
+    "seen": 1792059120.2452166,
+    "ast_hash": "d4e207a250b43c5ec2862f964eed397f",
+    "semantic_hash": "d4e207a250b43c5ec2862f964eed397f"
+  },
+  "src/mahut_kol/envs/minimal_task.py": {
+    "mtime": 1792063621.807686,
+    "seen": 1793733424.9360259,
+    "ast_hash": "53b7e1f0c0e10f981d7c89e1fc8e8837",
+    "semantic_hash": "53b7e1f0c0e10f981d7c89e1fc8e8837"
+  },
+  "src/mahut_kol/envs/pick_cube_task.py": {
+    "mtime": 1792063607.5312989,
+    "seen": 1793733424.9360282,
+    "ast_hash": "8d246ace42dfdad695252111bca012d4",
+    "semantic_hash": "8d246ace42dfdad695252111bca012d4"
+  },
+  "src/mahut_kol/envs/push_cube_task.py": {
+    "mtime": 1792063617.3828864,
+    "seen": 1793733424.9360294,
+    "ast_hash": "775d4e21514908e0ea3bc546e2d820d3",
+    "semantic_hash": "775d4e21514908e0ea3bc546e2d820d3"
+  },
+  "src/mahut_kol/utils/__init__.py": {
+    "mtime": 1791902963.8546236,
+    "seen": 1792059120.245243,
+    "ast_hash": "62294ea686120d61389fb13ad9b510e9",
+    "semantic_hash": "62294ea686120d61389fb13ad9b510e9"
+  },
+  "src/mahut_kol/utils/teleop_ps4.py": {
+    "mtime": 1792586948.2164948,
+    "seen": 1793733424.9360464,
+    "ast_hash": "765efc3c75d0dd6d841bac4738a08c79",
+    "semantic_hash": "765efc3c75d0dd6d841bac4738a08c79"
+  },
+  "tests/test_custom_task.py": {
+    "mtime": 1792057507.0556793,
+    "seen": 1792059120.2452457,
+    "ast_hash": "a37d7ce59be386658061c18daa70bae6",
+    "semantic_hash": "a37d7ce59be386658061c18daa70bae6"
+  },
+  "tests/test_teleop.py": {
+    "mtime": 1792057495.384641,
+    "seen": 1792059120.245247,
+    "ast_hash": "a9921f14ab435ef9153cf9860403a182",
+    "semantic_hash": "a9921f14ab435ef9153cf9860403a182"
+  },
+  "docs/mahut_kol_push_cube.png": {
+    "mtime": 1791905146.9941733,
+    "seen": 1792059120.2452512,
+    "ast_hash": "f5d87ed1076d8690e137166b0aefa7c5",
+    "semantic_hash": "f5d87ed1076d8690e137166b0aefa7c5"
+  },
+  "docs/maniskill_minimal_sim.png": {
+    "mtime": 1791837077.3340118,
+    "seen": 1792059120.2452524,
+    "ast_hash": "d8b331ade63dab693720ac634e6e306f",
+    "semantic_hash": "d8b331ade63dab693720ac634e6e306f"
+  },
+  "docs/sapien_model_check.png": {
+    "mtime": 1791836796.6325548,
+    "seen": 1792059120.2452533,
+    "ast_hash": "66b63bb6be9da06d2e59afa7eb5284fe",
+    "semantic_hash": "66b63bb6be9da06d2e59afa7eb5284fe"
+  },
+  "Side_project/ik_solver.py": {
+    "mtime": 1792587908.4534025,
+    "seen": 1793733424.935973,
+    "ast_hash": "46c1d81f300c9db690dd7216d679b9e0",
+    "semantic_hash": "46c1d81f300c9db690dd7216d679b9e0"
+  },
+  "Side_project/main.py": {
+    "mtime": 1792587010.8027005,
+    "seen": 1793733424.9359753,
+    "ast_hash": "4c5784186b1fa500696b99d941b62044",
+    "semantic_hash": "4c5784186b1fa500696b99d941b62044"
+  },
+  "Side_project/teleop_webcam.py": {
+    "mtime": 1792590768.4057672,
+    "seen": 1793733424.935977,
+    "ast_hash": "347d5481a000c45467e7253f5a4ab0cb",
+    "semantic_hash": "347d5481a000c45467e7253f5a4ab0cb"
+  },
+  "Side_project/test_webcam_teleop.py": {
+    "mtime": 1792590789.5066843,
+    "seen": 1793733424.9359782,
+    "ast_hash": "aaae464b72c9552b1a723d300bbceeb9",
+    "semantic_hash": "aaae464b72c9552b1a723d300bbceeb9"
+  },
+  "Side_project/view_so100.py": {
+    "mtime": 1792587006.3686647,
+    "seen": 1793733424.9359794,
+    "ast_hash": "4c5784186b1fa500696b99d941b62044",
+    "semantic_hash": "4c5784186b1fa500696b99d941b62044"
+  },
+  "Side_project/webxr_teleop.py": {
+    "mtime": 1792588037.1541016,
+    "seen": 1793733424.9359803,
+    "ast_hash": "200c7fe4bd09f163bbf1ab562fdab8a1",
+    "semantic_hash": "200c7fe4bd09f163bbf1ab562fdab8a1"
+  },
+  "Teleoperasyonlar/__init__.py": {
+    "mtime": 1792586931.115589,
+    "seen": 1793733424.9359813,
+    "ast_hash": "81f0027d12cd259268db5c2bdfba4d5b",
+    "semantic_hash": "81f0027d12cd259268db5c2bdfba4d5b"
+  },
+  "Teleoperasyonlar/record_demos.py": {
+    "mtime": 1792586927.110552,
+    "seen": 1793733424.9359827,
+    "ast_hash": "cd58681f590ad49b68b635a3829bcc73",
+    "semantic_hash": "cd58681f590ad49b68b635a3829bcc73"
+  },
+  "Teleoperasyonlar/teleop_agent.py": {
+    "mtime": 1792586879.695175,
+    "seen": 1793733424.9359837,
+    "ast_hash": "237bd90cac2befcf30b8effc299fcdab",
+    "semantic_hash": "237bd90cac2befcf30b8effc299fcdab"
+  },
+  "Teleoperasyonlar/teleop_maniskill_ps4.py": {
+    "mtime": 1792586907.621381,
+    "seen": 1793733424.9359846,
+    "ast_hash": "4b803a1d684e2e9a13f884c19f717cc9",
+    "semantic_hash": "4b803a1d684e2e9a13f884c19f717cc9"
+  },
+  "Teleoperasyonlar/teleop_ps4.py": {
+    "mtime": 1792586879.6965942,
+    "seen": 1793733424.9359856,
+    "ast_hash": "1009cc0bcb6e98e679dc508d3622efdb",
+    "semantic_hash": "1009cc0bcb6e98e679dc508d3622efdb"
+  },
+  "Teleoperasyonlar/test_ps4.py": {
+    "mtime": 1792586917.6386106,
+    "seen": 1793733424.9359868,
+    "ast_hash": "2e982e800d253fd212d1111a513fa76c",
+    "semantic_hash": "2e982e800d253fd212d1111a513fa76c"
+  },
+  "scripts/generate_prism_mesh.py": {
+    "mtime": 1793729168.3057158,
+    "seen": 1793733424.9359994,
+    "ast_hash": "45f0baeb0cdb2a3774ae65c9caf23480",
+    "semantic_hash": "45f0baeb0cdb2a3774ae65c9caf23480"
+  },
+  "scripts/test_shapes_env.py": {
+    "mtime": 1793732750.3543935,
+    "seen": 1793733424.9360166,
+    "ast_hash": "73d5107832068d6f589fb233c6889549",
+    "semantic_hash": "73d5107832068d6f589fb233c6889549"
+  },
+  "scripts/view_multi_shape.py": {
+    "mtime": 1793732720.3065715,
+    "seen": 1793733424.9360209,
+    "ast_hash": "4901a6d3c1863ae91bfeaa318ad815e2",
+    "semantic_hash": "4901a6d3c1863ae91bfeaa318ad815e2"
+  },
+  "src/mahut_kol/envs/multi_shape_task.py": {
+    "mtime": 1793732678.109649,
+    "seen": 1793733424.9360268,
+    "ast_hash": "c240f1d296c9c0566e91e210a8cb8552",
+    "semantic_hash": "c240f1d296c9c0566e91e210a8cb8552"
+  },
+  "src/mahut_kol/envs/shape_objects.py": {
+    "mtime": 1793732612.5425966,
+    "seen": 1793733424.9360306,
+    "ast_hash": "3afd2dee10d22ebc71faab744d935bdd",
+    "semantic_hash": "3afd2dee10d22ebc71faab744d935bdd"
+  },
+  "tests/test_multi_shape_task.py": {
+    "mtime": 1793731842.507282,
+    "seen": 1793733424.936052,
+    "ast_hash": "d09a6e00687ed7a2c91299176243c1db",
+    "semantic_hash": "d09a6e00687ed7a2c91299176243c1db"
+  },
+  "tests/test_prism_mesh.py": {
+    "mtime": 1793729211.8785932,
+    "seen": 1793733424.9360533,
+    "ast_hash": "c162d5e46c03273122c8d162652ab2cf",
+    "semantic_hash": "c162d5e46c03273122c8d162652ab2cf"
+  },
+  "tests/test_prism_physics_stress.py": {
+    "mtime": 1793729748.221781,
+    "seen": 1793733424.9360545,
+    "ast_hash": "58bb5b14a7267ddbf306f28101b0e8bd",
+    "semantic_hash": "58bb5b14a7267ddbf306f28101b0e8bd"
+  },
+  "tests/test_prism_stress.py": {
+    "mtime": 1793729733.4496279,
+    "seen": 1793733424.9360557,
+    "ast_hash": "39287b718ef62cbc75b2a5d56e105235",
+    "semantic_hash": "39287b718ef62cbc75b2a5d56e105235"
+  },
+  "tests/test_shape_objects.py": {
+    "mtime": 1793731063.915553,
+    "seen": 1793733424.9360569,
+    "ast_hash": "e6402e8b9c16d6d81caaa0e2acab70ea",
+    "semantic_hash": "e6402e8b9c16d6d81caaa0e2acab70ea"
+  },
+  "ORIGINAL_REQUEST.md": {
+    "mtime": 1793727222.8973057,
+    "seen": 1793733424.9360595,
+    "ast_hash": "72112958cbeefbcb8d9b41f4c9ec0a41",
+    "semantic_hash": "72112958cbeefbcb8d9b41f4c9ec0a41"
+  },
+  "PROJECT.md": {
+    "mtime": 1793729878.4584901,
+    "seen": 1793733424.936061,
+    "ast_hash": "c3691b095d551daf0c405eeed1b1f855",
+    "semantic_hash": "c3691b095d551daf0c405eeed1b1f855"
+  },
+  "Side_project/README.md": {
+    "mtime": 1792587019.3793266,
+    "seen": 1793733424.9360645,
+    "ast_hash": "fb4df6fcb94ebb067764acf2707d7fa6",
+    "semantic_hash": "fb4df6fcb94ebb067764acf2707d7fa6"
+  },
+  "Side_project/README_TELEOP.md": {
+    "mtime": 1792588100.4110644,
+    "seen": 1793733424.9360657,
+    "ast_hash": "e2a08817aa3f7685dc58132011e8dc77",
+    "semantic_hash": "e2a08817aa3f7685dc58132011e8dc77"
+  },
+  "Side_project/README_WEBCAM.md": {
+    "mtime": 1792590815.6784568,
+    "seen": 1793733424.936067,
+    "ast_hash": "984ea1102aa1fab9614a1cbb48b99c84",
+    "semantic_hash": "984ea1102aa1fab9614a1cbb48b99c84"
+  },
+  "Side_project/index.html": {
+    "mtime": 1792587959.9985666,
+    "seen": 1793733424.936069,
+    "ast_hash": "9ab8525561603857ca0330aa1d9f06a7",
+    "semantic_hash": "9ab8525561603857ca0330aa1d9f06a7"
+  },
+  "Side_project/so_arm100/CHANGELOG.md": {
+    "mtime": 1792586936.6584735,
+    "seen": 1793733424.9360712,
+    "ast_hash": "23ec9f97172cd162407fce36d837bb6a",
+    "semantic_hash": "23ec9f97172cd162407fce36d837bb6a"
+  },
+  "Side_project/so_arm100/README.md": {
+    "mtime": 1792586936.658643,
+    "seen": 1793733424.9360735,
+    "ast_hash": "35669bc51f6f5475ae86be51d00d94ee",
+    "semantic_hash": "35669bc51f6f5475ae86be51d00d94ee"
+  },
+  "Teleoperasyonlar/README.md": {
+    "mtime": 1792586940.8514564,
+    "seen": 1793733424.9360752,
+    "ast_hash": "591146e2f2b974ba7e3f8275fd310adb",
+    "semantic_hash": "591146e2f2b974ba7e3f8275fd310adb"
+  },
+  "docs/DONANIM_BILGILERI.md": {
+    "mtime": 1792060949.2196338,
+    "seen": 1793733424.9360845,
+    "ast_hash": "670ed4b8d85a1a643d6e589a59de1030",
+    "semantic_hash": "670ed4b8d85a1a643d6e589a59de1030"
+  },
+  "docs/superpowers/plans/2026-10-15-fizik-motoru-ve-donanim-duzeltmesi.md": {
+    "mtime": 1792060926.6851296,
+    "seen": 1793733424.936089,
+    "ast_hash": "c1b8896cac2783181bd89ebf15395ca7",
+    "semantic_hash": "c1b8896cac2783181bd89ebf15395ca7"
+  },
+  "Side_project/so_arm100/so_arm100.png": {
+    "mtime": 1792586936.6615472,
+    "seen": 1793733424.9360912,
+    "ast_hash": "97b221798ea45104a814500b30d16cf9",
+    "semantic_hash": "97b221798ea45104a814500b30d16cf9"
+  },
+  "assets/multi_shape_view.png": {
+    "mtime": 1793732767.4171627,
+    "seen": 1793733424.9360957,
+    "ast_hash": "dd29234f398746f41aa2b6cbc0d818a0",
+    "semantic_hash": "dd29234f398746f41aa2b6cbc0d818a0"
+  },
+  "assets/shapes_verification_render.png": {
+    "mtime": 1793732758.7078907,
+    "seen": 1793733424.9360983,
+    "ast_hash": "ce4f4f26b5b39689325dfb75603ddd16",
+    "semantic_hash": "ce4f4f26b5b39689325dfb75603ddd16"
+  }
+}

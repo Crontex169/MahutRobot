@@ -1,0 +1,560 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MahutKol: MuJoCo Modelinden Birebir Matematiksel Olarak Türetilmiş URDF (5-DOF + Gripper) -->
+<robot name="mahut_kol">
+
+  <!-- Materyal Tanımları -->
+  <material name="metallic">
+    <color rgba="0.65 0.65 0.70 1.0"/>
+  </material>
+  <material name="dark_gray">
+    <color rgba="0.15 0.15 0.15 1.0"/>
+  </material>
+  <material name="finger_blue">
+    <color rgba="0.20 0.45 0.80 1.0"/>
+  </material>
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="-0.000414 -0.032292 -0.019043" rpy="-3.141593 -1.417373 -0.000000"/>
+      <mass value="0.229997"/>
+      <inertia ixx="0.000234041" ixy="0" ixz="0" iyy="0.000166984" iyz="0" izz="0.000151837"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.00365741 -0.0322925 -0.00978" rpy="-0.000000 0.000000 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/base_rotate-v1_lazy-susan-100mm-ALT-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.00365741 -0.0322925 -0.00978" rpy="-0.000000 0.000000 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/base_rotate-v1_lazy-susan-100mm-ALT-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.00365741 -0.0322925 -0.0066177" rpy="-0.000000 0.000000 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/base_rotate-v1_lazy-susan-100mm-TASIYICI-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.00365741 -0.0322925 -0.0066177" rpy="-0.000000 0.000000 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/base_rotate-v1_lazy-susan-100mm-TASIYICI-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.00620259 -0.0322925 -0.03605" rpy="1.570796 0.000000 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/base_rotate-v1_p_motor-v3.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="dark_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0.00620259 -0.0322925 -0.03605" rpy="1.570796 0.000000 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/base_rotate-v1_p_motor-v3.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="joint0" type="revolute">
+    <parent link="base_link"/>
+    <child link="link0"/>
+    <origin xyz="-0.00365706 -0.0322927 -0.00850048" rpy="0.000000 0.000000 0.000000"/>
+    <axis xyz="0 -0 1"/>
+    <limit lower="-1.5708" upper="1.5708" effort="3.432" velocity="3.0"/>
+    <dynamics damping="0.05"/>
+  </joint>
+
+  <link name="link0">
+    <inertial>
+      <origin xyz="-0.000037 0.000855 0.009194" rpy="-1.152379 -1.544985 -1.524350"/>
+      <mass value="0.270311"/>
+      <inertia ixx="0.00024897" ixy="0" ixz="0" iyy="0.00014361" iyz="0" izz="0.000143379"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.039103 0.0199002 -0.0361235" rpy="3.141593 -0.000000 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/base_rotate-v1_p_rotate-v2.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.039103 0.0199002 -0.0361235" rpy="3.141593 -0.000000 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/base_rotate-v1_p_rotate-v2.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-3.56506e-07 2.05536e-07 0.00650048" rpy="3.141593 -0.000000 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/base_rotate-v1_lazy-susan-100mm-UST-SERVO-1-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="-3.56506e-07 2.05536e-07 0.00650048" rpy="3.141593 -0.000000 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/base_rotate-v1_lazy-susan-100mm-UST-SERVO-1-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-3.56506e-07 0.00550021 0.00850048" rpy="0.000000 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/part-1-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="-3.56506e-07 0.00550021 0.00850048" rpy="0.000000 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/part-1-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-3.56148e-07 0.00375021 0.0205005" rpy="-3.141593 0.000000 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/motor-1-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="dark_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="-3.56148e-07 0.00375021 0.0205005" rpy="-3.141593 0.000000 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/motor-1-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="joint1" type="revolute">
+    <parent link="link0"/>
+    <child link="link1"/>
+    <origin xyz="0.00986006 0.0312997 0.0205005" rpy="0.000000 -0.400000 0.000000"/>
+    <axis xyz="-0 1 0"/>
+    <limit lower="0" upper="3.14159" effort="3.432" velocity="3.0"/>
+    <dynamics damping="0.05"/>
+  </joint>
+
+  <link name="link1">
+    <inertial>
+      <origin xyz="-0.035161 -0.017556 0.020300" rpy="3.141592 -1.047190 0.000000"/>
+      <mass value="0.031989"/>
+      <inertia ixx="4.68378e-05" ixy="0" ixz="0" iyy="3.10903e-05" iyz="0" izz="1.77253e-05"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.0438143 -0.0361235 0.00231742" rpy="-1.570796 -0.523599 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/part-2-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.0438143 -0.0361235 0.00231742" rpy="-1.570796 -0.523599 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/part-2-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.033429 -0.0249995 0.0193" rpy="-3.141593 1.047198 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/part-3-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.033429 -0.0249995 0.0193" rpy="-3.141593 1.047198 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/part-3-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0368931 -0.0249995 0.0213" rpy="-0.000000 -1.047198 -0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/part-4-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.0368931 -0.0249995 0.0213" rpy="-0.000000 -1.047198 -0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/part-4-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0680043 -0.0361235 0.0844139" rpy="1.570796 -1.047197 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/part-5-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.0680043 -0.0361235 0.0844139" rpy="1.570796 -1.047197 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/part-5-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="joint2" type="revolute">
+    <parent link="link1"/>
+    <child link="link2"/>
+    <origin xyz="-0.070322 7.97973e-17 0.0406" rpy="0.000000 -0.872700 0.000000"/>
+    <axis xyz="0 -1 -0"/>
+    <limit lower="-1" upper="1.5708" effort="3.432" velocity="3.0"/>
+    <dynamics damping="0.05"/>
+  </joint>
+
+  <link name="link2">
+    <inertial>
+      <origin xyz="0.017375 -0.027228 0.004102" rpy="0.388020 -1.404478 3.014955"/>
+      <mass value="0.107791"/>
+      <inertia ixx="8.36805e-05" ixy="0" ixz="0" iyy="6.6594e-05" iyz="0" izz="2.58149e-05"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.00971053 -0.0275495 0.00171217" rpy="0.000000 -0.174533 -0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/motor-2-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="dark_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0.00971053 -0.0275495 0.00171217" rpy="0.000000 -0.174533 -0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/motor-2-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.00762675 -0.0257995 0.0135299" rpy="2.967060 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/part-6-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="0.00762675 -0.0257995 0.0135299" rpy="2.967060 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/part-6-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0387624 -0.0257995 0.00683479" rpy="0.000000 1.396265 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/part-7-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0387624 -0.0257995 0.00683479" rpy="0.000000 1.396265 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/part-7-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0450366 -0.0369235 -0.0120628" rpy="-1.570796 0.174533 -3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/part-8-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0450366 -0.0369235 -0.0120628" rpy="-1.570796 0.174533 -3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/part-8-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="joint3" type="revolute">
+    <parent link="link2"/>
+    <child link="link3"/>
+    <origin xyz="0.08009 -0.0008 0.014325" rpy="0.000000 0.000000 0.000000"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-3.141593" upper="0.0" effort="3.432" velocity="3.0"/>
+    <dynamics damping="0.05"/>
+  </joint>
+
+  <link name="link3">
+    <inertial>
+      <origin xyz="0.016006 -0.030335 0.003986" rpy="0.042312 -1.399106 3.037966"/>
+      <mass value="0.182423"/>
+      <inertia ixx="0.000183025" ixy="0" ixz="0" iyy="0.000162246" iyz="0" izz="3.61311e-05"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.00971065 -0.0275495 -0.0017122" rpy="3.141593 0.174533 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/motor-3-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="dark_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.00971065 -0.0275495 -0.0017122" rpy="3.141593 0.174533 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/motor-3-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0117944 -0.0257995 0.0101056" rpy="2.967060 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/part-9-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.0117944 -0.0257995 0.0101056" rpy="2.967060 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/part-9-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0428624 -0.0317995 0.0197431" rpy="-3.141593 -0.174533 -0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/part-10-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0428624 -0.0317995 0.0197431" rpy="-3.141593 -0.174533 -0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/part-10-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0432228 -0.0317995 0.00762139" rpy="2.967060 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/motor-4-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="dark_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0432228 -0.0317995 0.00762139" rpy="2.967060 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/motor-4-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="joint4" type="revolute">
+    <parent link="link3"/>
+    <child link="link4"/>
+    <origin xyz="0.070354 -0.04166 0.012405" rpy="0.000000 0.000000 0.000000"/>
+    <axis xyz="0.984808 0 0.173648"/>
+    <limit lower="-1.570796" upper="1.570796" effort="3.432" velocity="3.0"/>
+    <dynamics damping="0.05"/>
+  </joint>
+
+  <link name="link4">
+    <inertial>
+      <origin xyz="0.034345 0.005594 0.007971" rpy="-1.331954 -1.365499 3.099090"/>
+      <mass value="0.150151"/>
+      <inertia ixx="0.000164398" ixy="0" ixz="0" iyy="0.000125222" iyz="0" izz="7.81032e-05"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.0423651 0.0199005 0.0322361" rpy="3.141593 -1.396265 -3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/part-11-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.0423651 0.0199005 0.0322361" rpy="3.141593 -1.396265 -3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/part-11-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0255432 0.00960048 0.0163848" rpy="-3.141593 -0.174533 -0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/part-12-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0255432 0.00960048 0.0163848" rpy="-3.141593 -0.174533 -0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/part-12-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0259035 0.00960048 0.0042631" rpy="2.967060 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/motor-5-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="dark_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0259035 0.00960048 0.0042631" rpy="2.967060 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/motor-5-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0570843 -0.000349522 0.010269" rpy="1.396263 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_RB9.01.062.010-Main-frame_125-follower.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0570843 -0.000349522 0.010269" rpy="1.396263 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_RB9.01.062.010-Main-frame_125-follower.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0642989 -0.000259525 0.0280925" rpy="1.697467 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_Rod-d6_125.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <visual>
+      <origin xyz="0.0698557 -0.000259525 -0.00342131" rpy="-2.046534 0.000000 1.570796"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_Rod-d6_125.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <visual>
+      <origin xyz="0.0603549 -0.000259525 -0.00712741" rpy="2.948582 -0.438733 1.653629"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_Bearing_MF106-10å6å3.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <visual>
+      <origin xyz="0.0541035 -0.000259525 0.0283257" rpy="0.193011 0.438733 -1.487963"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_Bearing_MF106-10å6å3.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <visual>
+      <origin xyz="0.0631123 -0.000259525 -0.0066412" rpy="2.142932 0.174533 -3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_socket-countersunk-head-screw_din_DIN-7991---M4-x-8-----8N.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <visual>
+      <origin xyz="0.056861 -0.000259525 0.0288119" rpy="-0.998661 0.174533 -3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_socket-countersunk-head-screw_din_DIN-7991---M4-x-8-----8N.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+  </link>
+
+  <joint name="gripper_gear_fixed_joint" type="fixed">
+    <parent link="link4"/>
+    <child link="gripper_gear_link"/>
+    <origin xyz="0.053035 -0.00026 0.009047" rpy="0.000000 0.000000 0.000000"/>
+  </joint>
+
+  <link name="gripper_gear_link">
+    <inertial>
+      <origin xyz="-0.000534 0.000000 0.000079" rpy="-0.000757 -0.142011 0.000002"/>
+      <mass value="0.007520"/>
+      <inertia ixx="3.56238e-07" ixy="0" ixz="0" iyy="2.18627e-07" iyz="0" izz="2.17681e-07"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.0423653 0.0199005 0.0322358" rpy="3.141593 -1.396265 -3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/part-13-v1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+    <visual>
+      <origin xyz="0.00143785 4.75305e-07 0.00106611" rpy="1.642951 -0.174533 -0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_RB9.01.062.040-Gear-for-gripper_ISO---Spur-gear-0.8M-18T-20PA-5FW----S18B10H8L6.0S1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+  </link>
+
+  <joint name="finger_left" type="prismatic">
+    <parent link="link4"/>
+    <child link="finger_left_link"/>
+    <origin xyz="0.0670773 0.0517405 0.0123356" rpy="0.000000 0.000000 0.000000"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="0.0" upper="0.042" effort="15.0" velocity="0.2"/>
+    <dynamics damping="10.0"/>
+  </joint>
+
+  <link name="finger_left_link">
+    <inertial>
+      <origin xyz="0.015083 -0.004576 0.001090" rpy="1.277324 0.184241 1.548506"/>
+      <mass value="0.018250"/>
+      <inertia ixx="1.2328e-05" ixy="0" ixz="0" iyy="1.08296e-05" iyz="0" izz="4.72073e-06"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="1.570796 1.396263 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_RB9.01.062.020-Clamp.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="finger_blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.570796 1.396263 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_RB9.01.062.020-Clamp.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.00880619 0.007 -0.00764533" rpy="-1.570796 -0.174533 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_RB9.01.062.030-Gear-rack_m0.8.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+  </link>
+
+  <joint name="finger_right" type="prismatic">
+    <parent link="link4"/>
+    <child link="finger_right_link"/>
+    <origin xyz="0.0670773 -0.0522595 0.0123356" rpy="0.000000 0.000000 0.000000"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="0.0" upper="0.042" effort="15.0" velocity="0.2"/>
+    <dynamics damping="10.0"/>
+  </joint>
+
+  <link name="finger_right_link">
+    <inertial>
+      <origin xyz="0.014546 0.004576 0.004135" rpy="1.509268 0.180627 1.528019"/>
+      <mass value="0.018250"/>
+      <inertia ixx="1.2328e-05" ixy="0" ixz="0" iyy="1.08296e-05" iyz="0" izz="4.72073e-06"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="1.570796 -1.396263 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_RB9.01.062.020-Clamp.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="finger_blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.570796 -1.396263 3.141593"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_RB9.01.062.020-Clamp.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.01089 -0.007 0.00417236" rpy="1.570796 -0.174533 0.000000"/>
+      <geometry>
+        <mesh filename="../meshes/Gripper-v2_RB9.01.062.030-Gear-rack_m0.8.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="metallic"/>
+    </visual>
+  </link>
+
+  <!-- TCP (Tool Center Point / Gripper Center) -->
+  <link name="link_gripper_center"/>
+  <joint name="joint_gripper_center" type="fixed">
+    <parent link="link4"/>
+    <child link="link_gripper_center"/>
+    <origin xyz="0.084616 -0.000260 0.015428" rpy="0 0 0"/>
+  </joint>
+
+</robot>
