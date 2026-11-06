@@ -27,3 +27,7 @@ pygame  # Gamepad ve klavye teleoperasyon arayüzü
 rerun-sdk
 tqdm
 h5py
+
+# --- Yerel Sesli Komut & Speech-to-Text ---
+faster-whisper>=1.0.0
+sounddevice>=0.4.6
