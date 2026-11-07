@@ -10,6 +10,7 @@ Sözleşme:
 - `reset(qpos)` bölüm başında ölçülen eklem konumuyla çağrılır; kaynak hedefini buna eşitler.
 - `act(qpos)` her kontrol adımında (20 Hz) çağrılır ve sıradaki hedefi döner.
 - `poll_events()` cihazdan gelen olayları ("reset" gibi) döner ve temizler.
+- `ready()` False iken kayıt betiği bölümü başlatmaz (ör. telefon bağlanıp debriyaja basılana dek).
 """
 
 from __future__ import annotations
@@ -57,6 +58,14 @@ class ActionSource(abc.ABC):
 
     def poll_events(self) -> Set[str]:
         return set()
+
+    def ready(self) -> bool:
+        """Operatör başlamaya hazır mı? Bölüm (ve süre sayacı) ancak True olunca başlar."""
+        return True
+
+    def start_hint(self) -> str:
+        """Bölüm başlamadan önce gösterilecek ipucu."""
+        return ""
 
     def status_text(self) -> str:
         return ""

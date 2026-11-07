@@ -157,6 +157,13 @@ class TeleopSharedState:
             if not connected:
                 self.clutch_active = False
 
+    def clutch_now(self, timeout_s: Optional[float] = None) -> bool:
+        """Debriyaj şu an basılı mı (kenar algılama durumunu değiştirmeden okur)."""
+        with self.lock:
+            if timeout_s is not None and time.time() - self.last_packet_time > timeout_s:
+                return False
+            return self.clutch_active
+
     def get_state(self, timeout_s: Optional[float] = None) -> Tuple[bool, bool, np.ndarray, np.ndarray, float, bool]:
         """(debriyaj, yeni_basıldı, delta_pos, delta_euler, kıskaç_oranı, reset) - atomik okuma."""
         with self.lock:
@@ -273,6 +280,8 @@ class PhoneTeleopMapper:
         self.delta_offset = np.zeros(3)
         self.euler_offset = np.zeros(3)
         self.last_ik_ok = True
+        self.guard_rejects = 0  # parmak-masa koruması yüzünden reddedilen adım sayısı
+        self.ik_fails = 0
 
     def reset(self, arm_q: Sequence[float]) -> None:
         self.q_cmd = np.asarray(arm_q, dtype=np.float64)[:ARM_DOF].copy()
@@ -336,6 +345,8 @@ class PhoneTeleopMapper:
             q2, ok2, _ = self.K.ik(new_pos, roll=new_roll, q_init=self.q_cmd, n_iters=c["ik_iterations"])
             if ok2:
                 q, ok = q2, True
+        if not ok:
+            self.ik_fails += 1
         # Eklem adım sınırı; parmaklar masaya girecekse adımı küçült (en fazla 3 kez yarıla)
         dq = np.clip(q - self.q_cmd, -c["max_step_joint"], c["max_step_joint"])
         for frac in (1.0, 0.5, 0.25, 0.125):
@@ -343,6 +354,7 @@ class PhoneTeleopMapper:
             if finger_min_z(self.K, q_new) >= 0.0:
                 break
         else:
+            self.guard_rejects += 1
             self.last_ik_ok = False  # masaya girerdi: güncellemeyi reddet, kol yerinde kalır
             return self.q_cmd.copy()
         self.last_ik_ok = ok and frac == 1.0
@@ -377,6 +389,9 @@ class PhoneActionSource(ActionSource):
         self.state = state or TeleopSharedState()
         self.mapper = PhoneTeleopMapper(self.cfg)
         self._events: Set[str] = set()
+        self.debug_period_s = float(self.cfg.get("debug_period_s", 1.0))  # 0 = kapalı
+        self._dbg_t = time.time()
+        self._dbg_packets = 0
         self.server: Optional[BackgroundServer] = None
         if start_server:
             app = create_app(self.state, html_file)
@@ -398,11 +413,48 @@ class PhoneActionSource(ActionSource):
         arm = self.mapper.step(clutch, pressed, dpos, deul)
         finger = gripper_open_ratio_to_finger(grip)
         self.target = clip_action(np.r_[arm, finger, finger])
+        self._debug_log(clutch, dpos, deul, qpos)
         return self.target.copy()
 
+    def _debug_log(self, clutch, dpos, deul, qpos) -> None:
+        """Saniyede bir terminale tanı satırı: telefon verisi gerçekten kola ulaşıyor mu?"""
+        if self.debug_period_s <= 0:
+            return
+        now = time.time()
+        if now - self._dbg_t < self.debug_period_s:
+            return
+        s, m = self.state, self.mapper
+        rate = (s.packet_count - self._dbg_packets) / (now - self._dbg_t)
+        self._dbg_t, self._dbg_packets = now, s.packet_count
+        if not s.client_connected and s.packet_count == 0:
+            return
+        tcp_cmd = m.K.fk(m.q_cmd)[0]
+        tcp_now = m.K.fk(np.asarray(qpos, dtype=np.float64)[:ARM_DOF])[0]
+        print(
+            f"[Telefon] {'bağlı' if s.client_connected else 'KOPUK'} {rate:4.0f} paket/s "
+            f"debriyaj={'AKTİF' if clutch else 'yok'} Δtel(cm)={np.round(np.asarray(dpos) * 100, 1)} "
+            f"Δaçı(°)={np.round(np.degrees(deul), 0)} hedefTCP={np.round(tcp_cmd, 3)} "
+            f"gerçekTCP={np.round(tcp_now, 3)} ikHata={m.ik_fails} masaRed={m.guard_rejects}",
+            flush=True,
+        )
+
     def poll_events(self) -> Set[str]:
+        with self.state.lock:
+            if self.state.reset_requested:  # bölüm başlamadan basılan "Sıfırla" da sayılsın
+                self.state.reset_requested = False
+                self._events.add("reset")
         ev, self._events = self._events, set()
         return ev
+
+    def ready(self) -> bool:
+        # Bölüm, telefonda debriyaja ilk basıldığında başlar: bağlanma/AR başlatma süresi
+        # bölüm süresinden yenmez ve kaydın başında boş (hareketsiz) kareler birikmez.
+        return self.state.clutch_now(self.cfg["packet_timeout_s"])
+
+    def start_hint(self) -> str:
+        if not self.state.client_connected:
+            return f"Telefon bekleniyor: Chrome'da http://localhost:{self.cfg['port']} açın"
+        return "Başlamak için telefonda DEBRİYAJ'a basılı tutun"
 
     def status_text(self) -> str:
         s = self.state

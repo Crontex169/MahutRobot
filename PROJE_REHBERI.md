@@ -258,7 +258,11 @@ dene, **Q** çık. Held-out komutlar kayıtta atlanır (`--include-heldout` ile 
 7. **DEBRİYAJ** düğmesini basılı tutup telefonu hareket ettirin: ileri (ekrana doğru) → kıskaç
    robota doğru (−x), sağa → +y (görüntüde sağa), yukarı → yukarı. Telefonun burnunu aşağı
    eğmek kıskacı dikleştirir; direksiyon gibi çevirmek bilek roll'ü. Düğmeyi bırakınca kol durur
-   (yeniden konumlanmak için bırakıp telefonu rahat pozisyona getirin).
+   (yeniden konumlanmak için bırakıp telefonu rahat pozisyona getirin). Bölüm ve süre sayacı
+   (varsayılan 1200 adım = 60 s, `--max-steps`) debriyaja **ilk basıldığında** başlar; o ana dek
+   pencerede "Telefon bekleniyor / debriyaja basın" yazar ve kare kaydedilmez. Süre dolarsa
+   bölüm atılır ve beklemeden sıradaki sahne gelir. Terminalde saniyede bir `[Telefon] ...` tanı
+   satırı paket hızını, debriyajı, telefon deltasını ve hedef/gerçek TCP'yi gösterir.
 8. Kaydırıcı: %100 tam açık, %0 kapalı. Nesneyi kavrayıp hedefe koyun, kaydırıcıyı açarak bırakın.
 9. Başarı algılanınca pencere yeşile döner: **Enter** kaydet, **R** at. Telefondaki "Sıfırla"
    düğmesi bölümü atıp yeniden başlatır.

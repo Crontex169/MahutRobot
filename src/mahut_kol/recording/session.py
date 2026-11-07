@@ -154,6 +154,41 @@ class PygameUI:
 # ---------------------------------------------------------------------------
 
 
+def wait_for_start(
+    obs,
+    actions,
+    ui=None,
+    poll_s: float = 0.05,
+    timeout_s: Optional[float] = None,
+) -> str:
+    """
+    Bölümden önce operatörü bekler; simülasyon adımlanmaz (sahne sabit, kare kaydedilmez).
+    Döner: "start" (actions.ready() oldu), "reset" (yeni sahne istendi), "quit" ya da "timeout".
+    """
+    ready = getattr(actions, "ready", lambda: True)  # eski/duck-typed kaynaklar: hemen başla
+    start_hint = getattr(actions, "start_hint", lambda: "")
+    t0 = time.time()
+    last_hint = None
+    while True:
+        if ready():
+            return "start"
+        hint = start_hint()
+        if hint != last_hint and ui is None:
+            print(f"⏳ {hint}", flush=True)
+        last_hint = hint
+        ev: Set[str] = set()
+        if ui is not None:
+            ev |= ui.update(obs, f"⏳ {hint}", False)
+        ev |= actions.poll_events()
+        if "quit" in ev:
+            return "quit"
+        if "discard" in ev or "reset" in ev:
+            return "reset"
+        if timeout_s is not None and time.time() - t0 > timeout_s:
+            return "timeout"
+        time.sleep(poll_s)
+
+
 def run_episode(
     env,
     obs,

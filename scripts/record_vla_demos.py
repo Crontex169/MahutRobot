@@ -3,6 +3,7 @@
 Teleoperasyonla VLA demo kaydı (MultiShapeRelationalTask, LeRobot v0.4.4 formatı).
 
 Her bölüm: komut seç -> reset(options) -> İngilizce talimatı göster -> teleop ->
+operatör hazır olunca (telefonda ilk debriyaj) süre başlar ->
 başarı otomatik algılanır -> operatör onaylar (Enter kaydet, R at ve yeniden dene, Q çık).
 
 Veri kümesi var ise AÇILIR ve sonuna eklenir; hiçbir şey silinmez. Şema uyuşmazsa hata verir.
@@ -38,7 +39,7 @@ from mahut_kol.commands import (  # noqa: E402
     load_heldout,
     to_english_instruction,
 )
-from mahut_kol.envs.multi_shape_task import DEFAULT_MAX_EPISODE_STEPS, DEFAULT_NUM_DISTRACTORS  # noqa: E402
+from mahut_kol.envs.multi_shape_task import DEFAULT_NUM_DISTRACTORS  # noqa: E402
 from mahut_kol.recording import (  # noqa: E402
     DEFAULT_REPO_ID,
     DEFAULT_ROOT,
@@ -48,7 +49,15 @@ from mahut_kol.recording import (  # noqa: E402
     build_frame,
     episode_meta,
 )
-from mahut_kol.recording.session import PygameUI, TerminalUI, make_env, run_episode  # noqa: E402
+TELEOP_MAX_STEPS = 1200
+
+from mahut_kol.recording.session import (  # noqa: E402
+    PygameUI,
+    TerminalUI,
+    make_env,
+    run_episode,
+    wait_for_start,
+)
 
 
 def parse_args(argv=None):
@@ -62,7 +71,9 @@ def parse_args(argv=None):
     ap.add_argument("--queue-state", default=None, help=f"varsayılan: <root>/{QUEUE_STATE_NAME}")
     ap.add_argument("--num-episodes", type=int, default=10, help="bu oturumda kaydedilecek bölüm sayısı")
     ap.add_argument("--seed", type=int, default=0, help="komut kuyruğu ve sahne tohumu tabanı")
-    ap.add_argument("--max-steps", type=int, default=DEFAULT_MAX_EPISODE_STEPS)
+    # İnsan teleopu scripted politikadan yavaş: varsayılan 60 s (ortamın 600 adımı = 30 s dar kalıyor)
+    ap.add_argument("--max-steps", type=int, default=TELEOP_MAX_STEPS,
+                    help=f"bölüm adım sınırı ({FPS} Hz; varsayılan {TELEOP_MAX_STEPS})")
     ap.add_argument("--num-distractors", type=int, default=DEFAULT_NUM_DISTRACTORS)
     ap.add_argument("--include-heldout", action="store_true", help="held-out komutları da kaydet")
     ap.add_argument("--no-display", action="store_true", help="pygame penceresi yerine terminal")
@@ -124,6 +135,19 @@ def main(argv=None):
             actions.reset(env.unwrapped.agent.robot.get_qpos()[0].cpu().numpy())
             actions.publish_status(instruction=instruction, success=False, episode=writer.num_episodes)
 
+            # Süre sayacı ve kayıt, operatör hazır olunca başlar (telefonda ilk debriyaj).
+            hint = getattr(actions, "start_hint", lambda: "")()
+            if hint:
+                print(f"⏳ {hint}", flush=True)
+            start = wait_for_start(obs, actions, ui)
+            if start == "quit":
+                print("👋 Çıkılıyor.")
+                break
+            if start == "reset":
+                print("↩️  Yeni sahne istendi.")
+                continue
+            print(f"▶️  Bölüm başladı ({args.max_steps} adım = {args.max_steps / FPS:.0f} s).", flush=True)
+
             res = run_episode(
                 env, obs,
                 act_fn=actions.act,
@@ -144,9 +168,7 @@ def main(argv=None):
             if not res.success:
                 print(f"⏱️  {res.steps} adımda başarı yok; bölüm atıldı.")
                 source.on_failed(cmd)
-                choice = ui.confirm("Başarısız bölüm kaydedilmez.")
-                if choice == "quit":
-                    break
+                # Pencereyi dondurup tuş beklemek yerine doğrudan sonraki bölüme geç.
                 continue
             choice = ui.confirm(f"✅ Başarılı ({res.steps} adım, {res.duration_s:.1f} s).")
             if choice == "quit":

@@ -184,3 +184,41 @@ class TestPhoneActionSourceInSim(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWaitForStart(unittest.TestCase):
+    """Bölüm, telefonda ilk debriyaja basılana dek başlamaz (süre bağlanırken dolmasın)."""
+
+    def _src(self):
+        src = PhoneActionSource(start_server=False, config={"debug_period_s": 0})
+        src.reset(np.r_[ROBOT_REST_QPOS[:5], 0.0, 0.0])
+        return src
+
+    def test_waits_until_clutch(self):
+        from mahut_kol.recording.session import wait_for_start
+
+        src = self._src()
+        self.assertFalse(src.ready())
+        self.assertEqual(wait_for_start(None, src, poll_s=0.01, timeout_s=0.05), "timeout")
+        src.state.handle_message(teleop_msg(clutch=True))
+        self.assertTrue(src.ready())
+        self.assertEqual(wait_for_start(None, src, poll_s=0.01, timeout_s=0.05), "start")
+        # ready() kenar algılamayı tüketmemeli: ilk act() hâlâ "yeni basıldı" görüp çapalar
+        clutch, pressed, *_ = src.state.get_state(src.cfg["packet_timeout_s"])
+        self.assertTrue(clutch and pressed)
+
+    def test_stale_clutch_is_not_ready(self):
+        src = self._src()
+        src.state.handle_message(teleop_msg(clutch=True))
+        src.state.last_packet_time -= 5.0  # telefon dondu
+        self.assertFalse(src.ready())
+
+    def test_phone_reset_before_start(self):
+        from mahut_kol.recording.session import wait_for_start
+
+        src = self._src()
+        src.state.handle_message(json.dumps({"type": "reset"}))
+        self.assertEqual(wait_for_start(None, src, poll_s=0.01, timeout_s=0.5), "reset")
+
+    def test_keyboard_source_always_ready(self):
+        self.assertTrue(ScriptedActionSource([[0] * 7]).ready())
