@@ -88,6 +88,8 @@ CONFIG: Dict[str, Any] = {
     "axis_map": {"x": 2, "y": 0, "z": 1},
     "axis_signs": {"x": 1.0, "y": 1.0, "z": 1.0},
     # delta_euler indeksleri: 0 = X etrafında (pitch), 1 = Y etrafında, 2 = Z etrafında
+    # Debriyajdan beri kamera yönü bu kadar döndüyse pencerede "bırakıp yeniden bas" uyarısı
+    "frame_drift_warn_deg": 30.0,
     "tilt_from": (0, 1.0),
     "roll_from": (2, -1.0),
     "ema_alpha_pos": 0.35,
@@ -396,6 +398,7 @@ class PhoneTeleopMapper:
         self.delta_offset = np.zeros(3)
         self.euler_offset = np.zeros(3)
         self.last_ik_ok = True
+        self.frame_drift_deg = 0.0
         self.basis: Optional[np.ndarray] = None  # bilek kamerası kontrol tabanı (debriyajda sabitlenir)
         self.guard_rejects = 0  # parmak-masa koruması yüzünden reddedilen adım sayısı
         self.ik_fails = 0
@@ -415,6 +418,23 @@ class PhoneTeleopMapper:
         self.basis = None
         if self.cfg.get("control_frame", "wrist") == "wrist":
             self.basis = wrist_control_basis(self.K.fk(self.q_cmd)[1])
+        self.frame_drift_deg = 0.0
+
+    def _update_frame_drift(self) -> None:
+        """
+        Debriyajda sabitlenen kontrol çerçevesi ile kameranın şu anki yönü arasındaki açı (°).
+        Uzun yana harekette kol tabanda döner; fark büyüyünce kontrol ters/çapraz hissettirir.
+        Çerçeve bilerek sabit tutulur (her adımda güncellemek denendi, daha kötü bulundu);
+        bunun yerine operatöre "debriyajı bırakıp yeniden bas" uyarısı gösterilir.
+        """
+        if self.basis is None:
+            self.frame_drift_deg = 0.0
+            return
+        cur = wrist_control_basis(self.K.fk(self.q_cmd)[1])
+        if cur is None:
+            return
+        c = float(np.clip(cur[:, 0] @ self.basis[:, 0], -1.0, 1.0))
+        self.frame_drift_deg = float(np.degrees(np.arccos(c)))
 
     def tcp_target(self) -> np.ndarray:
         return self.smooth_pos.copy()
@@ -491,6 +511,7 @@ class PhoneTeleopMapper:
             return self.q_cmd.copy()
         self.last_ik_ok = ok and frac == 1.0
         self.q_cmd = q_new
+        self._update_frame_drift()
         if frac == 1.0:
             self.smooth_pos = new_pos
             self.smooth_tilt = new_tilt
@@ -586,7 +607,7 @@ class PhoneActionSource(ActionSource):
                 line += f" hedefTCP={np.round(m.K.fk(m.q_cmd)[0], 3)}"
                 if self._last_qpos is not None:
                     line += f" gerçekTCP={np.round(m.K.fk(self._last_qpos[:ARM_DOF])[0], 3)}"
-                line += f" ikHata={m.ik_fails} masaRed={m.guard_rejects}"
+                line += f" ikHata={m.ik_fails} masaRed={m.guard_rejects} yönKaydı={m.frame_drift_deg:.0f}°"
             print(line, flush=True)
 
     def poll_events(self) -> Set[str]:
@@ -612,7 +633,10 @@ class PhoneActionSource(ActionSource):
         conn = "bağlı" if s.client_connected else "BAĞLI DEĞİL"
         clutch = "AKTİF" if s.clutch_active else "bırakıldı"
         ik = "" if self.mapper.last_ik_ok else "  [IK sınırda]"
-        return f"telefon {conn}, debriyaj {clutch}, paket {s.packet_count}{ik}"
+        drift = ""
+        if s.clutch_active and self.mapper.frame_drift_deg > self.cfg["frame_drift_warn_deg"]:
+            drift = f"  ⚠ YÖN KAYDI {self.mapper.frame_drift_deg:.0f}°: debriyajı bırakıp tekrar basın"
+        return f"telefon {conn}, debriyaj {clutch}, paket {s.packet_count}{ik}{drift}"
 
     def publish_status(self, **status) -> None:
         self.state.push_status({"type": "status", **status})

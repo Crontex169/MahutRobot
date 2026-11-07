@@ -321,3 +321,31 @@ class TestTrackingJump(unittest.TestCase):
         st.handle_message(teleop_msg(clutch=False))
         st.handle_message(teleop_msg((0.0, 0, 0)))          # yeni vuruş: ofset sıfırlanır
         np.testing.assert_allclose(st.delta_pos, 0, atol=1e-12)
+
+
+class TestFrameDriftWarning(unittest.TestCase):
+    """Çerçeve debriyajda sabit; uzun yana harekette kamera dönünce operatör uyarılır."""
+
+    def test_warns_after_long_sideways_stroke_and_clears_on_repress(self):
+        K = get_kinematics()
+        src = PhoneActionSource(start_server=False, config={"ema_alpha_pos": 1.0})
+        q0, ok, _ = K.ik(np.array([0.17, 0.08, 0.09]), tilt=np.radians(50))
+        self.assertTrue(ok)
+        qpos = np.r_[q0, 0.0, 0.0]
+        src.reset(qpos)
+        src.state.handle_message(teleop_msg((0, 0, 0)))
+        src.act(qpos)
+        self.assertNotIn("YÖN KAYDI", src.status_text())
+        x = 0.0
+        for _ in range(120):  # telefon yavaşça 24 cm sağa: kol tabanda döner
+            x += 0.002
+            src.state.handle_message(teleop_msg((x, 0, 0)))
+            qpos = src.act(qpos)
+        self.assertGreater(src.mapper.frame_drift_deg, 30.0)
+        self.assertIn("YÖN KAYDI", src.status_text())
+        src.state.handle_message(teleop_msg(clutch=False))
+        src.act(qpos)
+        src.state.handle_message(teleop_msg((0, 0, 0)))  # yeniden bas -> çerçeve yenilenir
+        src.act(qpos)
+        self.assertLess(src.mapper.frame_drift_deg, 5.0)
+        self.assertNotIn("YÖN KAYDI", src.status_text())

@@ -258,7 +258,9 @@ dene, **Q** çık. Held-out komutlar kayıtta atlanır (`--include-heldout` ile 
 7. **DEBRİYAJ** düğmesini basılı tutup telefonu hareket ettirin. Varsayılan kontrol **kıskaç
    (wrist) kamerasına göredir**: telefonu sağa götürmek → wrist görüntüsünde sağa, ileri itmek →
    görüntünün üstüne doğru, yukarı kaldırmak → yukarı (çerçeve her debriyaj basışında kıskacın o
-   anki yönüne göre sabitlenir). Eski front kamera eşlemesi için `--control-frame world`
+   anki yönüne göre sabitlenir). Tek basışta uzun yana hareket ederseniz kol tabanda döner ve
+   yönler kayar; kayma 30°'yi geçince pencerenin durum satırında **"YÖN KAYDI: debriyajı bırakıp
+   tekrar basın"** uyarısı çıkar. Bırakıp yeniden basınca yönler görüntüye yeniden oturur. Eski front kamera eşlemesi için `--control-frame world`
    (ileri → robota doğru −x, sağa → +y). Telefonun burnunu aşağı
    eğmek kıskacı dikleştirir; direksiyon gibi çevirmek bilek roll'ü. Düğmeyi bırakınca kol durur
    (yeniden konumlanmak için bırakıp telefonu rahat pozisyona getirin). Bölüm ve süre sayacı
