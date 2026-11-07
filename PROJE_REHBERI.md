@@ -257,10 +257,11 @@ dene, **Q** çık. Held-out komutlar kayıtta atlanır (`--include-heldout` ile 
    yönelime sabitlenir).
 7. **DEBRİYAJ** düğmesini basılı tutup telefonu hareket ettirin. Varsayılan kontrol **kıskaç
    (wrist) kamerasına göredir**: telefonu sağa götürmek → wrist görüntüsünde sağa, ileri itmek →
-   görüntünün üstüne doğru, yukarı kaldırmak → yukarı (çerçeve her debriyaj basışında kıskacın o
-   anki yönüne göre sabitlenir). Eski front kamera eşlemesi için `--control-frame world`
-   (ileri → robota doğru −x, sağa → +y). Telefonun burnunu aşağı
-   eğmek kıskacı dikleştirir; direksiyon gibi çevirmek bilek roll'ü. Düğmeyi bırakınca kol durur
+   görüntünün üstüne doğru, yukarı kaldırmak → yukarı. Çerçeve her adımda kameranın o anki
+   yönünden hesaplanır; kol tabanda dönse de "sağ" hep görüntünün sağıdır. Telefonun açısı
+   varsayılan olarak kıskacı döndürmez (eğim ve bilek sabit); açmak için `--phone-rotation`. Eski front kamera eşlemesi için `--control-frame world`
+   (ileri → robota doğru −x, sağa → +y). `--phone-rotation` ile:
+   telefonun burnunu aşağı eğmek kıskacı dikleştirir; direksiyon gibi çevirmek bilek roll'ü. Düğmeyi bırakınca kol durur
    (yeniden konumlanmak için bırakıp telefonu rahat pozisyona getirin). Bölüm ve süre sayacı
    (varsayılan 1200 adım = 60 s, `--max-steps`) debriyaja **ilk basıldığında** başlar; o ana dek
    pencerede "Telefon bekleniyor / debriyaja basın" yazar ve kare kaydedilmez. Süre dolarsa

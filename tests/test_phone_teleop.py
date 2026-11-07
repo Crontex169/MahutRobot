@@ -84,11 +84,12 @@ class TestMapper(unittest.TestCase):
         self.m.reset(ROBOT_REST_QPOS[:5])
         self.p0, _ = self.K.fk(self.m.q_cmd)
 
-    def _run(self, dpos, n=40, deul=(0, 0, 0)):
-        """Telefon sayfası gibi: debriyaja basılınca delta 0, sonra hedef delta."""
+    def _run(self, dpos, n=40, deul=(0, 0, 0), ramp=10):
+        """Telefon sayfası gibi: debriyaja basılınca delta 0, sonra `ramp` adımda hedef delta."""
         q = self.m.step(True, True, (0, 0, 0), (0, 0, 0))
-        for _ in range(n):
-            q = self.m.step(True, False, dpos, deul)
+        for i in range(n):
+            f = min(1.0, (i + 1) / ramp)
+            q = self.m.step(True, False, f * np.asarray(dpos, float), f * np.asarray(deul, float))
         return q
 
     def test_directions(self):
@@ -112,7 +113,18 @@ class TestMapper(unittest.TestCase):
         q4 = self._run((0.03, 0, 0), n=20)
         self.assertGreater(self.K.fk(q4)[0][1] - self.K.fk(q3)[0][1], 0.02)
 
+    def test_rotation_disabled_by_default(self):
+        m = PhoneTeleopMapper(config={"ema_alpha_pos": 1.0, "ema_alpha_rot": 1.0})
+        m.reset(ROBOT_REST_QPOS[:5])
+        t0, r0 = self.K.tilt_of(m.q_cmd), m.q_cmd[4]
+        m.step(True, True, (0, 0, 0), (0, 0, 0))
+        for _ in range(40):
+            q = m.step(True, False, (0, 0, 0), (-0.5, 0.3, 0.75))  # telefon 40°+ döndü
+        self.assertAlmostEqual(self.K.tilt_of(q), t0, places=2)
+        self.assertAlmostEqual(q[4], r0, places=3)
+
     def test_tilt_and_roll(self):
+        self.m.cfg["rotation_enabled"] = True
         t0 = self.K.tilt_of(self.m.q_cmd)
         q = self._run((0, 0, 0), deul=(-0.2, 0, 0.3), n=40)
         self.assertLess(self.K.tilt_of(q), t0 - 0.1)  # burun aşağı -> daha dik
@@ -321,3 +333,30 @@ class TestTrackingJump(unittest.TestCase):
         st.handle_message(teleop_msg(clutch=False))
         st.handle_message(teleop_msg((0.0, 0, 0)))          # yeni vuruş: ofset sıfırlanır
         np.testing.assert_allclose(st.delta_pos, 0, atol=1e-12)
+
+
+class TestWristFrameFollowsCamera(unittest.TestCase):
+    """Uzun yana harekette kol tabanda dönse de telefon 'sağ'ı her an görüntünün sağı kalır."""
+
+    def test_long_sideways_stroke(self):
+        from mahut_kol.teleop.phone_webxr import wrist_control_basis
+
+        K = get_kinematics()
+        m = PhoneTeleopMapper(config={"ema_alpha_pos": 1.0, "ema_alpha_rot": 1.0})
+        q0, ok, _ = K.ik(np.array([0.17, 0.08, 0.09]), tilt=np.radians(50))
+        self.assertTrue(ok)
+        m.reset(q0)
+        m.step(True, True, (0, 0, 0), (0, 0, 0))
+        heading0 = np.arctan2(*K.fk(m.q_cmd)[0][1::-1])
+        x = 0.0
+        for i in range(120):  # telefon yavaşça 24 cm sağa
+            x += 0.002
+            p_prev = K.fk(m.q_cmd)[0]
+            right = wrist_control_basis(K.fk(m.q_cmd)[1])[:, 0]
+            q = m.step(True, False, (x, 0, 0), (0, 0, 0))
+            dp = K.fk(q)[0] - p_prev
+            if np.linalg.norm(dp[:2]) > 1e-3:
+                cos = float(dp[:2] @ right[:2] / np.linalg.norm(dp[:2]))
+                self.assertGreater(cos, 0.8, (i, dp, right))
+        heading1 = np.arctan2(*K.fk(m.q_cmd)[0][1::-1])
+        self.assertGreater(abs(heading1 - heading0), np.radians(30))  # kol gerçekten döndü

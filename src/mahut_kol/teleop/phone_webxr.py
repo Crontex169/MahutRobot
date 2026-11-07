@@ -81,13 +81,21 @@ CONFIG: Dict[str, Any] = {
     # Konum kontrol çerçevesi:
     #   "wrist": bilek (kıskaç) kamerası görüntüsüne göre - telefon sağa -> görüntüde sağa,
     #            ileri itmek -> görüntünün üstüne doğru (kameranın baktığı yatay yön), yukarı -> +z.
-    #            Çerçeve debriyaja basıldığı anda sabitlenir (vuruş boyunca dönmez).
+    #            Çerçeve HER ADIMDA kameranın o anki yönünden hesaplanır ve telefon hareketi artımsal
+    #            uygulanır: kol tabanda dönüp kamera döndükçe "sağ" yine görüntünün sağı kalır.
+    #            (Debriyajda sabitlemek, uzun yana hareketlerde ~65° kaymaya ve ters kontrole yol açtı.)
     #   "world": sabit front kameraya göre (axis_map / axis_signs).
     "control_frame": "wrist",
     # Δdünya[i] = işaret[i] * Δtelefon[eksen[i]]  ("world" çerçevesi; bkz. modül açıklaması)
     "axis_map": {"x": 2, "y": 0, "z": 1},
     "axis_signs": {"x": 1.0, "y": 1.0, "z": 1.0},
     # delta_euler indeksleri: 0 = X etrafında (pitch), 1 = Y etrafında, 2 = Z etrafında
+    # Telefonun açısı kıskacı döndürsün mü (pitch -> eğim, yaw -> bilek roll). Varsayılan KAPALI:
+    # gerçek denemede farkında olmadan yapılan 40°+ dönüşler bileği ve kamerayı çevirip "kol kendi
+    # kendine oynuyor" hissi verdi; scripted demolar da sabit roll ile %91 başarılı.
+    "rotation_enabled": False,
+    # Hedef, gerçekleşen TCP'den en fazla bu kadar önde olabilir (sınırda biriken "borç" olmasın)
+    "max_lead_m": 0.10,
     "tilt_from": (0, 1.0),
     "roll_from": (2, -1.0),
     "ema_alpha_pos": 0.35,
@@ -396,6 +404,8 @@ class PhoneTeleopMapper:
         self.delta_offset = np.zeros(3)
         self.euler_offset = np.zeros(3)
         self.last_ik_ok = True
+        self.goal_pos = np.zeros(3)
+        self.last_delta = np.zeros(3)
         self.basis: Optional[np.ndarray] = None  # bilek kamerası kontrol tabanı (debriyajda sabitlenir)
         self.guard_rejects = 0  # parmak-masa koruması yüzünden reddedilen adım sayısı
         self.ik_fails = 0
@@ -412,9 +422,14 @@ class PhoneTeleopMapper:
         self.smooth_tilt = self.anchor_tilt
         self.anchor_roll = float(self.q_cmd[4])
         self.smooth_roll = self.anchor_roll
-        self.basis = None
-        if self.cfg.get("control_frame", "wrist") == "wrist":
-            self.basis = wrist_control_basis(self.K.fk(self.q_cmd)[1])
+        self.goal_pos = p.copy()
+        self.basis = self._current_basis(None)
+
+    def _current_basis(self, prev: Optional[np.ndarray]) -> Optional[np.ndarray]:
+        if self.cfg.get("control_frame", "wrist") != "wrist":
+            return None
+        b = wrist_control_basis(self.K.fk(self.q_cmd)[1])
+        return b if b is not None else prev
 
     def tcp_target(self) -> np.ndarray:
         return self.smooth_pos.copy()
@@ -431,18 +446,29 @@ class PhoneTeleopMapper:
             # paket gelirse sıçrama olmasın diye basıldığı andaki delta da çapaya katılır.
             self.delta_offset = np.asarray(delta_pos, dtype=np.float64).copy()
             self.euler_offset = np.asarray(delta_euler, dtype=np.float64).copy()
+            self.last_delta = np.zeros(3)
         if not clutch:
             return self.q_cmd.copy()
 
         c = self.cfg
         delta_pos = np.asarray(delta_pos, dtype=np.float64) - self.delta_offset
         delta_euler = np.asarray(delta_euler, dtype=np.float64) - self.euler_offset
+        # Artımsal: bu paketteki telefon hareketi, o anki kamera çerçevesinde hedefe eklenir
+        d = delta_pos - self.last_delta
+        self.last_delta = delta_pos
+        if self.cfg.get("control_frame", "wrist") == "wrist":
+            self.basis = self._current_basis(self.basis)
         if self.basis is not None:
-            cand = self.anchor_pos + phone_to_wrist_delta(delta_pos, self.basis, c["pos_scale"])
+            self.goal_pos = self.goal_pos + phone_to_wrist_delta(d, self.basis, c["pos_scale"])
         else:
-            cand = self.anchor_pos + phone_to_world_delta(delta_pos, c)
+            self.goal_pos = self.goal_pos + phone_to_world_delta(d, c)
         lim = c["workspace_limits"]
-        cand = np.array([np.clip(cand[i], *lim[k]) for i, k in enumerate("xyz")])
+        self.goal_pos = np.array([np.clip(self.goal_pos[i], *lim[k]) for i, k in enumerate("xyz")])
+        lead = self.goal_pos - self.smooth_pos
+        ln = float(np.linalg.norm(lead))
+        if ln > c["max_lead_m"]:
+            self.goal_pos = self.smooth_pos + lead * (c["max_lead_m"] / ln)
+        cand = self.goal_pos.copy()
         step = cand - self.smooth_pos
         n = np.linalg.norm(step)
         if n > c["max_step_pos"]:
@@ -451,6 +477,8 @@ class PhoneTeleopMapper:
         new_pos = a * cand + (1 - a) * self.smooth_pos
 
         de = np.asarray(delta_euler, dtype=np.float64)
+        if not c.get("rotation_enabled", False):
+            de = np.zeros(3)  # kıskaç eğimi ve bilek roll'ü debriyajdaki değerde kalır
         ti, ts = c["tilt_from"]
         ri, rs = c["roll_from"]
         tlo, thi = np.radians(c["tilt_limits_deg"])
