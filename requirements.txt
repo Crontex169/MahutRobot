@@ -24,6 +24,9 @@ omegaconf
 hydra-core
 opencv-python
 pygame  # Gamepad ve klavye teleoperasyon arayüzü
+fastapi  # Telefon (WebXR) teleop WebSocket sunucusu
+uvicorn
+httpx  # FastAPI TestClient (telefon teleop testleri)
 rerun-sdk
 tqdm
 h5py
