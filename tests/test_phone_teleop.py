@@ -222,3 +222,38 @@ class TestWaitForStart(unittest.TestCase):
 
     def test_keyboard_source_always_ready(self):
         self.assertTrue(ScriptedActionSource([[0] * 7]).ready())
+
+
+class TestQuaternionDelta(unittest.TestCase):
+    """Açı farkı ham kuaterniyondan: telefon neredeyse yatayken de sıçramasız."""
+
+    @staticmethod
+    def _q(axis, ang):
+        axis = np.asarray(axis, float) / np.linalg.norm(axis)
+        return np.r_[axis * np.sin(ang / 2), np.cos(ang / 2)]
+
+    @staticmethod
+    def _mul(a, b):  # [x, y, z, w]
+        x1, y1, z1, w1 = a
+        x2, y2, z2, w2 = b
+        return np.array([w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2, w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+                         w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2, w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2])
+
+    def test_small_rotation_near_gimbal(self):
+        from mahut_kol.teleop.phone_webxr import quat_rel_rotvec
+
+        anchor = self._q([1, 0, 0], np.radians(-85))  # telefon neredeyse yatay
+        for axis in ([1, 0, 0], [0, 1, 0], [0, 0, 1]):
+            cur = self._mul(self._q(axis, np.radians(10)), anchor)
+            rv = quat_rel_rotvec(cur, anchor)
+            np.testing.assert_allclose(rv, np.radians(10) * np.asarray(axis, float), atol=1e-9)
+
+    def test_state_uses_raw_quat_with_own_anchor(self):
+        st = TeleopSharedState()
+        anchor = self._q([1, 0, 0], np.radians(-85))
+        msg = lambda q: json.dumps({"type": "teleop", "clutch": True, "delta_pos": [0, 0, 0],
+                                    "delta_euler": [9, 9, 9], "raw_quat": list(q), "gripper": 1})
+        st.handle_message(msg(anchor))
+        np.testing.assert_allclose(st.delta_euler, 0, atol=1e-12)
+        st.handle_message(msg(self._mul(self._q([0, 0, 1], 0.2), anchor)))
+        np.testing.assert_allclose(st.delta_euler, [0, 0, 0.2], atol=1e-9)

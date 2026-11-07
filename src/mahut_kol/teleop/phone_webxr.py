@@ -102,6 +102,29 @@ def phone_to_world_delta(delta_pos: Sequence[float], config: Dict[str, Any] = CO
     )
 
 
+def quat_rel_rotvec(q_cur: Sequence[float], q_anchor: Sequence[float]) -> np.ndarray:
+    """
+    WebXR kuaterniyonları [x, y, z, w]: q_rel = q_cur * q_anchor^-1 dönüşünün dönme vektörü
+    (rad, telefon 'local' uzayı eksenlerinde). Euler'den farklı olarak gimbal kilidi yoktur: telefon
+    ekrana bakarken neredeyse yatay tutulduğunda (pitch ≈ -80..-90°) sayfanın Euler açıları
+    sıçrıyor, kol da yanlış bileğe dönüp masa korumasına takılıyordu. Küçük açılarda sayfanın
+    [pitch(X), roll(Y), yaw(Z)] değerleriyle aynı indeks ve işarettedir.
+    """
+    x1, y1, z1, w1 = (float(v) for v in q_cur)
+    x2, y2, z2, w2 = -float(q_anchor[0]), -float(q_anchor[1]), -float(q_anchor[2]), float(q_anchor[3])
+    x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+    y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
+    z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+    w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+    if w < 0:  # kısa yol
+        x, y, z, w = -x, -y, -z, -w
+    v = np.array([x, y, z])
+    n = float(np.linalg.norm(v))
+    if n < 1e-12:
+        return np.zeros(3)
+    return v * (2.0 * np.arctan2(n, w) / n)
+
+
 # ---------------------------------------------------------------------------
 # Thread-safe paylaşılan durum
 # ---------------------------------------------------------------------------
@@ -122,34 +145,69 @@ class TeleopSharedState:
         self.last_packet_time = 0.0
         self.packet_count = 0
         self.outbox: List[Dict[str, Any]] = []
+        self.msg_count = 0          # gelen tüm WebSocket mesajları
+        self.bad_count = 0          # çözülemeyen / tanınmayan mesajlar
+        self.msg_types: Dict[str, int] = {}
+        self.first_teleop_raw: Optional[str] = None
+        self.last_error: Optional[str] = None
+        self._pkt_clutch = False          # son paketteki debriyaj (paket tarafı kenar algılama)
+        self._anchor_quat: Optional[np.ndarray] = None
 
     def update_teleop(self, data: Dict[str, Any]) -> None:
         with self.lock:
-            self.clutch_active = bool(data.get("clutch", False))
+            clutch = bool(data.get("clutch", False))
             self.delta_pos = np.asarray(data.get("delta_pos", [0, 0, 0]), dtype=np.float64)[:3]
-            self.delta_euler = np.asarray(data.get("delta_euler", [0, 0, 0]), dtype=np.float64)[:3]
+            raw_quat = data.get("raw_quat")
+            if clutch and raw_quat is not None and len(raw_quat) == 4:
+                # Açı farkını ham kuaterniyondan hesapla (bkz. quat_rel_rotvec); çapa = debriyajın
+                # ilk paketi. Sayfanın delta_euler'i yalnızca raw_quat yoksa kullanılır.
+                q = np.asarray(raw_quat, dtype=np.float64)
+                if not self._pkt_clutch or self._anchor_quat is None:
+                    self._anchor_quat = q
+                self.delta_euler = quat_rel_rotvec(q, self._anchor_quat)
+            else:
+                self.delta_euler = np.asarray(data.get("delta_euler", [0, 0, 0]), dtype=np.float64)[:3]
+            self.clutch_active = clutch
+            self._pkt_clutch = clutch
             if "gripper" in data:
                 self.gripper_ratio = float(np.clip(float(data["gripper"]), 0.0, 1.0))
             self.last_packet_time = time.time()
             self.packet_count += 1
 
     def handle_message(self, text: str) -> Optional[str]:
-        """Ham WebSocket metnini işler; mesaj tipini döner (geçersizse None)."""
+        """Ham WebSocket metnini işler; mesaj tipini döner (geçersizse None). Asla hata atmaz."""
+        with self.lock:
+            self.msg_count += 1
         try:
             payload = json.loads(text)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
+            self._bad(f"JSON değil: {str(text)[:120]}")
             return None
         if not isinstance(payload, dict):
+            self._bad(f"sözlük değil: {str(text)[:120]}")
             return None
-        t = payload.get("type", "")
+        t = str(payload.get("type", ""))
+        with self.lock:
+            self.msg_types[t] = self.msg_types.get(t, 0) + 1
         if t == "teleop":
-            self.update_teleop(payload)
+            if self.first_teleop_raw is None:
+                self.first_teleop_raw = str(text)[:400]
+            try:
+                self.update_teleop(payload)
+            except Exception as e:  # bozuk alan (ör. null) bağlantıyı düşürmesin
+                self._bad(f"teleop paketi işlenemedi: {e!r}: {str(text)[:200]}")
+                return None
         elif t == "reset":
             with self.lock:
                 self.reset_requested = True
         else:
             return None
         return t
+
+    def _bad(self, err: str) -> None:
+        with self.lock:
+            self.bad_count += 1
+            self.last_error = err
 
     def set_connected(self, connected: bool) -> None:
         with self.lock:
@@ -222,8 +280,10 @@ def create_app(state: TeleopSharedState, html_file: Path = DEFAULT_HTML):
                 text = await websocket.receive_text()
                 if state.handle_message(text) == "reset":
                     print("[Sunucu] Telefondan sıfırlama isteği.")
-        except WebSocketDisconnect:
-            print("[Sunucu] Telefon bağlantısı kesildi.")
+        except WebSocketDisconnect as e:
+            print(f"[Sunucu] Telefon bağlantısı kesildi (kod {getattr(e, 'code', '?')}).")
+        except Exception as e:  # pragma: no cover - teşhis için
+            print(f"[Sunucu] WebSocket hatası: {e!r}")
         finally:
             send_task.cancel()
             state.set_connected(False)
@@ -390,8 +450,10 @@ class PhoneActionSource(ActionSource):
         self.mapper = PhoneTeleopMapper(self.cfg)
         self._events: Set[str] = set()
         self.debug_period_s = float(self.cfg.get("debug_period_s", 1.0))  # 0 = kapalı
-        self._dbg_t = time.time()
-        self._dbg_packets = 0
+        self._last_qpos: Optional[np.ndarray] = None
+        self._monitor_stop = threading.Event()
+        if self.debug_period_s > 0:
+            threading.Thread(target=self._monitor, daemon=True).start()
         self.server: Optional[BackgroundServer] = None
         if start_server:
             app = create_app(self.state, html_file)
@@ -413,30 +475,47 @@ class PhoneActionSource(ActionSource):
         arm = self.mapper.step(clutch, pressed, dpos, deul)
         finger = gripper_open_ratio_to_finger(grip)
         self.target = clip_action(np.r_[arm, finger, finger])
-        self._debug_log(clutch, dpos, deul, qpos)
+        self._last_qpos = np.asarray(qpos, dtype=np.float64).copy()
         return self.target.copy()
 
-    def _debug_log(self, clutch, dpos, deul, qpos) -> None:
-        """Saniyede bir terminale tanı satırı: telefon verisi gerçekten kola ulaşıyor mu?"""
-        if self.debug_period_s <= 0:
-            return
-        now = time.time()
-        if now - self._dbg_t < self.debug_period_s:
-            return
+    def _monitor(self) -> None:
+        """
+        Arka planda saniyede bir tanı satırı: telefondan gerçekten ne geliyor ve kola ulaşıyor mu?
+        Kontrol döngüsünden bağımsızdır (bölüm başlamadan beklerken de yazar).
+        """
         s, m = self.state, self.mapper
-        rate = (s.packet_count - self._dbg_packets) / (now - self._dbg_t)
-        self._dbg_t, self._dbg_packets = now, s.packet_count
-        if not s.client_connected and s.packet_count == 0:
-            return
-        tcp_cmd = m.K.fk(m.q_cmd)[0]
-        tcp_now = m.K.fk(np.asarray(qpos, dtype=np.float64)[:ARM_DOF])[0]
-        print(
-            f"[Telefon] {'bağlı' if s.client_connected else 'KOPUK'} {rate:4.0f} paket/s "
-            f"debriyaj={'AKTİF' if clutch else 'yok'} Δtel(cm)={np.round(np.asarray(dpos) * 100, 1)} "
-            f"Δaçı(°)={np.round(np.degrees(deul), 0)} hedefTCP={np.round(tcp_cmd, 3)} "
-            f"gerçekTCP={np.round(tcp_now, 3)} ikHata={m.ik_fails} masaRed={m.guard_rejects}",
-            flush=True,
-        )
+        last_msgs, last_t, printed_raw, last_err, idle_n = 0, time.time(), False, None, 0
+        while not self._monitor_stop.wait(self.debug_period_s):
+            now = time.time()
+            with s.lock:
+                msgs, types, bad, err = s.msg_count, dict(s.msg_types), s.bad_count, s.last_error
+                clutch, dpos, deul = s.clutch_active, s.delta_pos.copy(), s.delta_euler.copy()
+                age = now - s.last_packet_time if s.last_packet_time else float("inf")
+                connected, raw = s.client_connected, s.first_teleop_raw
+            rate = (msgs - last_msgs) / max(now - last_t, 1e-6)
+            idle = msgs == last_msgs and not clutch
+            last_msgs, last_t = msgs, now
+            if msgs == 0 and not connected:
+                continue
+            # Boştayken (paket yok, debriyaj yok) yalnızca 10 saniyede bir yaz
+            idle_n = idle_n + 1 if idle else 0
+            if idle and idle_n % 10 != 1:
+                continue
+            if raw and not printed_raw:
+                print(f"[Telefon] İlk teleop paketi: {raw}", flush=True)
+                printed_raw = True
+            if err and err != last_err:
+                print(f"[Telefon] HATALI MESAJ: {err}", flush=True)
+                last_err = err
+            line = (f"[Telefon] {'bağlı' if connected else 'KOPUK'} {rate:4.0f} mesaj/s türler={types} "
+                    f"hatalı={bad} debriyaj={'BASILI' if clutch else 'yok'} son paket {age:4.1f} s önce "
+                    f"Δtel(cm)={np.round(dpos * 100, 1)} Δaçı(°)={np.round(np.degrees(deul), 0)}")
+            if m.q_cmd is not None:
+                line += f" hedefTCP={np.round(m.K.fk(m.q_cmd)[0], 3)}"
+                if self._last_qpos is not None:
+                    line += f" gerçekTCP={np.round(m.K.fk(self._last_qpos[:ARM_DOF])[0], 3)}"
+                line += f" ikHata={m.ik_fails} masaRed={m.guard_rejects}"
+            print(line, flush=True)
 
     def poll_events(self) -> Set[str]:
         with self.state.lock:
@@ -467,5 +546,6 @@ class PhoneActionSource(ActionSource):
         self.state.push_status({"type": "status", **status})
 
     def close(self) -> None:
+        self._monitor_stop.set()
         if self.server is not None:
             self.server.stop()
