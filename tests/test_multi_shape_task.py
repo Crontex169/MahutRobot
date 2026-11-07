@@ -145,16 +145,20 @@ class TestMultiShapeRelationalTaskEnv(unittest.TestCase):
 
     def test_explicit_option_overrides(self):
         """Verify passing explicit manipulated, reference, and relation options."""
+        # Not: Bu test eskiden referans 'red_triangular_prism' + TOP kullanıyordu. Aşama 1'de
+        # prizmanın üstü geçersiz ilan edildi (ValueError); bu yüzden TOP için silindir
+        # referans kullanılıyor, prizma+TOP için ayrı bir hata testi var.
         options = {
             "manipulated_object": "blue_cylinder",
-            "reference_object": "red_triangular_prism",
+            "reference_object": "red_cylinder",
             "distractor_objects": ["green_cube"],
             "relation": "TOP",
         }
         obs, info = self.env.reset(options=options)
         unwrapped = self.env.unwrapped
         self.assertEqual(unwrapped.manipulated_object_id, "blue_cylinder")
-        self.assertEqual(unwrapped.reference_object_id, "red_triangular_prism")
+        self.assertEqual(unwrapped.reference_object_id, "red_cylinder")
+        self.assertEqual(unwrapped.distractor_object_ids, ["green_cube"])
         self.assertEqual(unwrapped.current_relation, "TOP")
 
         # Verify evaluation
