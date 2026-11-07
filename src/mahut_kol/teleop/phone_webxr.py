@@ -99,7 +99,10 @@ CONFIG: Dict[str, Any] = {
     "workspace_limits": {"x": (0.02, 0.30), "y": (-0.26, 0.22), "z": (0.02, 0.30)},
     "tilt_limits_deg": (25.0, 85.0),
     "ik_iterations": 30,
-    "packet_timeout_s": 0.5,       # bu süre paket gelmezse debriyaj bırakılmış sayılır
+    "packet_timeout_s": 0.5,
+    # Tek pakette (≈30 Hz) bundan büyük konum sıçraması ARCore takip kaybı/yeniden konumlanma
+    # sayılır ve yok edilir (gerçek denemede bir anda 4-7 m sıçradı). 0.08 m/paket ≈ 2.4 m/s.
+    "max_packet_jump_m": 0.08,       # bu süre paket gelmezse debriyaj bırakılmış sayılır
 }
 
 
@@ -175,8 +178,12 @@ def phone_to_wrist_delta(delta_pos: Sequence[float], basis: np.ndarray, scale: f
 class TeleopSharedState:
     """WebSocket sunucusu (arka plan thread) ile kontrol döngüsü arasındaki köprü."""
 
-    def __init__(self):
+    def __init__(self, max_packet_jump_m: float = 0.08):
         self.lock = threading.Lock()
+        self.max_packet_jump_m = max_packet_jump_m
+        self._jump_offset = np.zeros(3)   # yok sayılan sıçramaların toplamı (debriyaj vuruşu içinde)
+        self._last_raw_delta: Optional[np.ndarray] = None
+        self.jump_count = 0
         self.client_connected = False
         self.clutch_active = False
         self.prev_clutch = False
@@ -198,7 +205,14 @@ class TeleopSharedState:
     def update_teleop(self, data: Dict[str, Any]) -> None:
         with self.lock:
             clutch = bool(data.get("clutch", False))
-            self.delta_pos = np.asarray(data.get("delta_pos", [0, 0, 0]), dtype=np.float64)[:3]
+            raw_delta = np.asarray(data.get("delta_pos", [0, 0, 0]), dtype=np.float64)[:3]
+            if not clutch or not self._pkt_clutch or self._last_raw_delta is None:
+                self._jump_offset = np.zeros(3)  # yeni vuruş: telefon sayfası çapasını sıfırladı
+            elif np.linalg.norm(raw_delta - self._last_raw_delta) > self.max_packet_jump_m:
+                self._jump_offset += raw_delta - self._last_raw_delta  # takip sıçraması: yok say
+                self.jump_count += 1
+            self._last_raw_delta = raw_delta if clutch else None
+            self.delta_pos = raw_delta - self._jump_offset
             raw_quat = data.get("raw_quat")
             if clutch and raw_quat is not None and len(raw_quat) == 4:
                 # Açı farkını ham kuaterniyondan hesapla (bkz. quat_rel_rotvec); çapa = debriyajın
@@ -504,7 +518,7 @@ class PhoneActionSource(ActionSource):
         self.cfg = dict(CONFIG)
         if config:
             self.cfg.update(config)
-        self.state = state or TeleopSharedState()
+        self.state = state or TeleopSharedState(self.cfg["max_packet_jump_m"])
         self.mapper = PhoneTeleopMapper(self.cfg)
         self._events: Set[str] = set()
         self.debug_period_s = float(self.cfg.get("debug_period_s", 1.0))  # 0 = kapalı
@@ -566,7 +580,7 @@ class PhoneActionSource(ActionSource):
                 print(f"[Telefon] HATALI MESAJ: {err}", flush=True)
                 last_err = err
             line = (f"[Telefon] {'bağlı' if connected else 'KOPUK'} {rate:4.0f} mesaj/s türler={types} "
-                    f"hatalı={bad} debriyaj={'BASILI' if clutch else 'yok'} son paket {age:4.1f} s önce "
+                    f"hatalı={bad} takipSıçraması={s.jump_count} debriyaj={'BASILI' if clutch else 'yok'} son paket {age:4.1f} s önce "
                     f"Δtel(cm)={np.round(dpos * 100, 1)} Δaçı(°)={np.round(np.degrees(deul), 0)}")
             if m.q_cmd is not None:
                 line += f" hedefTCP={np.round(m.K.fk(m.q_cmd)[0], 3)}"

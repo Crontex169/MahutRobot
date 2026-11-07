@@ -306,3 +306,18 @@ class TestWristCameraFrame(unittest.TestCase):
                 d = K.fk(qq)[0] - p0
                 self.assertGreater(float(d @ axis_vec), 0.02, (q_arm, dphone, d))
         env.close()
+
+
+class TestTrackingJump(unittest.TestCase):
+    def test_arcore_jump_is_ignored(self):
+        st = TeleopSharedState(max_packet_jump_m=0.08)
+        for d in (0.0, 0.01, 0.02):
+            st.handle_message(teleop_msg((d, 0, 0)))
+        st.handle_message(teleop_msg((4.10, 0.8, -7.5)))   # takip kaybı: metrelerce sıçrama
+        np.testing.assert_allclose(st.delta_pos, (0.02, 0, 0), atol=1e-9)
+        st.handle_message(teleop_msg((4.12, 0.8, -7.5)))   # sonrasında hareket kaldığı yerden
+        np.testing.assert_allclose(st.delta_pos, (0.04, 0, 0), atol=1e-9)
+        self.assertEqual(st.jump_count, 1)
+        st.handle_message(teleop_msg(clutch=False))
+        st.handle_message(teleop_msg((0.0, 0, 0)))          # yeni vuruş: ofset sıfırlanır
+        np.testing.assert_allclose(st.delta_pos, 0, atol=1e-12)
