@@ -55,3 +55,7 @@ wandb/
 *~
 .agents/
 .superpowers/
+
+# Değerlendirme çıktıları (scripts/eval_policy.py)
+eval_results/
+videos_eval/
