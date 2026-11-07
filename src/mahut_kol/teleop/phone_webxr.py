@@ -408,10 +408,19 @@ class PhoneTeleopMapper:
         if not ok:
             self.ik_fails += 1
         # Eklem adım sınırı; parmaklar masaya girecekse adımı küçült (en fazla 3 kez yarıla)
-        dq = np.clip(q - self.q_cmd, -c["max_step_joint"], c["max_step_joint"])
+        # Eklem adım sınırı: tüm adımı ORANTILI küçült. Eklem eklem kırpmak hareketin yönünü
+        # bozuyordu (ör. masadan yukarı kalkarken bilek önce aşağı dönüp parmağı masaya sokuyordu).
+        dq = q - self.q_cmd
+        big = float(np.max(np.abs(dq)))
+        if big > c["max_step_joint"]:
+            dq *= c["max_step_joint"] / big
+        # Kol zaten masaya değecek kadar alçaktaysa (ör. kavrama sırasında) her adımı reddetmek
+        # kolu kilitliyordu (gerçek telefon denemesinde yukarı bile çıkamadı). Kural: parmaklar
+        # masanın altına inemez; zaten alttaysa daha da aşağı inemez, yukarı her zaman serbest.
+        floor = min(0.0, finger_min_z(self.K, self.q_cmd))
         for frac in (1.0, 0.5, 0.25, 0.125):
             q_new = self.q_cmd + frac * dq
-            if finger_min_z(self.K, q_new) >= 0.0:
+            if finger_min_z(self.K, q_new) >= floor - 1e-6:
                 break
         else:
             self.guard_rejects += 1

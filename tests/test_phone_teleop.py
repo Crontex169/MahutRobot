@@ -124,6 +124,17 @@ class TestMapper(unittest.TestCase):
         q = self._run((0, -0.5, 0), n=60)  # aşağı doğru zorla
         self.assertGreaterEqual(finger_min_z(self.K, q), 0.0)
 
+    def test_can_lift_after_touching_table(self):
+        """Masaya dayanıp kalan kol (gerçek denemedeki kilitlenme) yukarı çıkabilmeli."""
+        from mahut_kol.robots.kinematics import finger_min_z
+
+        self._run((0, -0.5, 0), n=60)
+        z_low = self.K.fk(self.m.q_cmd)[0][2]
+        # Yerinde dururken ve aşağı zorlarken kilitlenmesin; sonra yukarı kaldır
+        q = self._run((0, 0.10, 0), n=60)
+        self.assertGreater(self.K.fk(q)[0][2], z_low + 0.05)
+        self.assertGreaterEqual(finger_min_z(self.K, q), 0.0)
+
     def test_ik_reaches_workspace_targets(self):
         """Çalışma alanının üstündeki ızgarada TCP hedefe < 5 mm ulaşır."""
         errs = []
