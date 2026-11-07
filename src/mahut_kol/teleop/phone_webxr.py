@@ -452,7 +452,7 @@ class PhoneActionSource(ActionSource):
         self.debug_period_s = float(self.cfg.get("debug_period_s", 1.0))  # 0 = kapalı
         self._last_qpos: Optional[np.ndarray] = None
         self._monitor_stop = threading.Event()
-        if self.debug_period_s > 0:
+        if start_server and self.debug_period_s > 0:  # sahte mesajlı testlerde izleyici yok
             threading.Thread(target=self._monitor, daemon=True).start()
         self.server: Optional[BackgroundServer] = None
         if start_server:
