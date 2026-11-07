@@ -16,7 +16,10 @@ Kurulum (telefon USB ile bağlı, USB hata ayıklama açık):
     python3 scripts/record_vla_demos.py --device phone
     Telefonda Chrome: http://localhost:8000 -> "AR Teleop Başlat"
 
-Eksen eşlemesi (ManiSkill dünyası: robot +x'e bakar; operatör x > 0 tarafında robota, yani -x
+Varsayılan konum eşlemesi (CONFIG["control_frame"] = "wrist"): kıskaç kamerası görüntüsüne göre;
+telefon sağa -> görüntüde sağa, ileri -> görüntünün üstü, yukarı -> +z (bkz. wrist_control_basis).
+
+"world" eksen eşlemesi (ManiSkill dünyası: robot +x'e bakar; operatör x > 0 tarafında robota, yani -x
 yönüne bakar; sabit "front" kamera da oradadır, görüntünün sağı = +y):
     WebXR telefon ekseni: +X sağ, +Y yukarı, +Z kullanıcıya doğru (ileri = -Z).
     Telefonu ileri (robota doğru) itmek  -> TCP -x   : Δx_dünya = +ΔZ_telefon
@@ -75,7 +78,13 @@ CONFIG: Dict[str, Any] = {
     # Telefon yer değiştirmesi (m) -> TCP hedefi (m); açı (rad) -> açı (rad)
     "pos_scale": 1.0,
     "rot_scale": 1.0,
-    # Δdünya[i] = işaret[i] * Δtelefon[eksen[i]]  (bkz. modül açıklaması)
+    # Konum kontrol çerçevesi:
+    #   "wrist": bilek (kıskaç) kamerası görüntüsüne göre - telefon sağa -> görüntüde sağa,
+    #            ileri itmek -> görüntünün üstüne doğru (kameranın baktığı yatay yön), yukarı -> +z.
+    #            Çerçeve debriyaja basıldığı anda sabitlenir (vuruş boyunca dönmez).
+    #   "world": sabit front kameraya göre (axis_map / axis_signs).
+    "control_frame": "wrist",
+    # Δdünya[i] = işaret[i] * Δtelefon[eksen[i]]  ("world" çerçevesi; bkz. modül açıklaması)
     "axis_map": {"x": 2, "y": 0, "z": 1},
     "axis_signs": {"x": 1.0, "y": 1.0, "z": 1.0},
     # delta_euler indeksleri: 0 = X etrafında (pitch), 1 = Y etrafında, 2 = Z etrafında
@@ -123,6 +132,39 @@ def quat_rel_rotvec(q_cur: Sequence[float], q_anchor: Sequence[float]) -> np.nda
     if n < 1e-12:
         return np.zeros(3)
     return v * (2.0 * np.arctan2(n, w) / n)
+
+
+def wrist_camera_rotation(R_tcp: np.ndarray) -> np.ndarray:
+    """Bilek kamerasının dünya dönüşü (SAPIEN kamera: x ileri, y sol, z yukarı)."""
+    from mahut_kol.envs.multi_shape_task import WRIST_CAMERA_PITCH_DEG
+
+    a = np.radians(WRIST_CAMERA_PITCH_DEG)  # TCP y ekseni etrafında (ortamdaki montajla aynı)
+    Ry = np.array([[np.cos(a), 0.0, np.sin(a)], [0.0, 1.0, 0.0], [-np.sin(a), 0.0, np.cos(a)]])
+    return np.asarray(R_tcp) @ Ry
+
+
+def wrist_control_basis(R_tcp: np.ndarray) -> Optional[np.ndarray]:
+    """
+    Bilek kamerası görüntüsüne göre yatay kontrol tabanı: sütunlar [sağ, ileri, yukarı] (dünya).
+    sağ = görüntünün sağının yatay izdüşümü; ileri = yukarı × sağ (kamera aşağı bakarken
+    görüntünün üstü, öne bakarken görüş yönü); yukarı = dünya +z. Dejenere ise None.
+    """
+    Rc = wrist_camera_rotation(R_tcp)
+    right = -Rc[:, 1]
+    right = np.array([right[0], right[1], 0.0])
+    n = float(np.linalg.norm(right))
+    if n < 0.2:  # kamera yana yatmış: görüntü sağı neredeyse düşey
+        return None
+    right /= n
+    up = np.array([0.0, 0.0, 1.0])
+    fwd = np.cross(up, right)
+    return np.stack([right, fwd, up], axis=1)
+
+
+def phone_to_wrist_delta(delta_pos: Sequence[float], basis: np.ndarray, scale: float = 1.0) -> np.ndarray:
+    """Telefon (WebXR: +X sağ, +Y yukarı, +Z kullanıcıya doğru) -> dünya, bilek kamerası tabanında."""
+    d = np.asarray(delta_pos, dtype=np.float64)
+    return scale * (basis @ np.array([d[0], -d[2], d[1]]))
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +382,7 @@ class PhoneTeleopMapper:
         self.delta_offset = np.zeros(3)
         self.euler_offset = np.zeros(3)
         self.last_ik_ok = True
+        self.basis: Optional[np.ndarray] = None  # bilek kamerası kontrol tabanı (debriyajda sabitlenir)
         self.guard_rejects = 0  # parmak-masa koruması yüzünden reddedilen adım sayısı
         self.ik_fails = 0
 
@@ -355,6 +398,9 @@ class PhoneTeleopMapper:
         self.smooth_tilt = self.anchor_tilt
         self.anchor_roll = float(self.q_cmd[4])
         self.smooth_roll = self.anchor_roll
+        self.basis = None
+        if self.cfg.get("control_frame", "wrist") == "wrist":
+            self.basis = wrist_control_basis(self.K.fk(self.q_cmd)[1])
 
     def tcp_target(self) -> np.ndarray:
         return self.smooth_pos.copy()
@@ -377,7 +423,10 @@ class PhoneTeleopMapper:
         c = self.cfg
         delta_pos = np.asarray(delta_pos, dtype=np.float64) - self.delta_offset
         delta_euler = np.asarray(delta_euler, dtype=np.float64) - self.euler_offset
-        cand = self.anchor_pos + phone_to_world_delta(delta_pos, c)
+        if self.basis is not None:
+            cand = self.anchor_pos + phone_to_wrist_delta(delta_pos, self.basis, c["pos_scale"])
+        else:
+            cand = self.anchor_pos + phone_to_world_delta(delta_pos, c)
         lim = c["workspace_limits"]
         cand = np.array([np.clip(cand[i], *lim[k]) for i, k in enumerate("xyz")])
         step = cand - self.smooth_pos

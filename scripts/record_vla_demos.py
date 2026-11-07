@@ -78,6 +78,8 @@ def parse_args(argv=None):
     ap.add_argument("--include-heldout", action="store_true", help="held-out komutları da kaydet")
     ap.add_argument("--no-display", action="store_true", help="pygame penceresi yerine terminal")
     ap.add_argument("--port", type=int, default=8000, help="telefon sunucusu portu")
+    ap.add_argument("--control-frame", choices=["wrist", "world"], default="wrist",
+                    help="telefon hareketi hangi kameraya göre: wrist = kıskaç kamerası, world = front kamera")
     ap.add_argument("--no-paraphrase", action="store_true", help="hep kanonik talimat")
     return ap.parse_args(argv)
 
@@ -86,7 +88,7 @@ def make_action_source(args):
     if args.device == "phone":
         from mahut_kol.teleop.phone_webxr import PhoneActionSource
 
-        return PhoneActionSource(config={"port": args.port})
+        return PhoneActionSource(config={"port": args.port, "control_frame": args.control_frame})
     from mahut_kol.teleop.action_source import GamepadKeyboardActionSource
 
     return GamepadKeyboardActionSource()

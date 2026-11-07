@@ -80,7 +80,7 @@ class TestProtocol(unittest.TestCase):
 class TestMapper(unittest.TestCase):
     def setUp(self):
         self.K = get_kinematics()
-        self.m = PhoneTeleopMapper(config={"ema_alpha_pos": 1.0, "ema_alpha_rot": 1.0})
+        self.m = PhoneTeleopMapper(config={"ema_alpha_pos": 1.0, "ema_alpha_rot": 1.0, "control_frame": "world"})
         self.m.reset(ROBOT_REST_QPOS[:5])
         self.p0, _ = self.K.fk(self.m.q_cmd)
 
@@ -165,7 +165,7 @@ class TestPhoneActionSourceInSim(unittest.TestCase):
         env = gym.make("MahutKol-MultiShapeRelational-v1", obs_mode="state_dict", control_mode="pd_joint_pos")
         obs, _ = env.reset(seed=0)
         u = env.unwrapped
-        src = PhoneActionSource(start_server=False, config={"ema_alpha_pos": 1.0})
+        src = PhoneActionSource(start_server=False, config={"ema_alpha_pos": 1.0, "control_frame": "world"})
         qpos = u.agent.robot.get_qpos()[0].numpy()
         src.reset(qpos)
         p0 = u.agent.tcp.pose.p[0].numpy().copy()
@@ -268,3 +268,41 @@ class TestQuaternionDelta(unittest.TestCase):
         np.testing.assert_allclose(st.delta_euler, 0, atol=1e-12)
         st.handle_message(msg(self._mul(self._q([0, 0, 1], 0.2), anchor)))
         np.testing.assert_allclose(st.delta_euler, [0, 0, 0.2], atol=1e-9)
+
+
+class TestWristCameraFrame(unittest.TestCase):
+    """Varsayılan kontrol bilek kamerası görüntüsüne göre: telefon sağa -> görüntüde sağa."""
+
+    def test_basis_matches_sim_camera_and_motion(self):
+        import gymnasium as gym
+        import torch
+        from scipy.spatial.transform import Rotation
+
+        import mahut_kol.envs  # noqa: F401
+        import mahut_kol.robots  # noqa: F401
+        from mahut_kol.teleop.phone_webxr import wrist_camera_rotation
+
+        env = gym.make("MahutKol-MultiShapeRelational-v1", obs_mode="rgb", control_mode="pd_joint_pos")
+        env.reset(seed=0)
+        u = env.unwrapped
+        K = get_kinematics()
+        cam = u._sensors["wrist"].camera
+        for q_arm in (ROBOT_REST_QPOS[:5], np.array([0.6, 0.7, 0.5, -1.6, 0.5])):
+            a = torch.tensor(np.r_[q_arm, 0, 0], dtype=torch.float32)
+            for _ in range(40):
+                env.step(a)
+            q = u.agent.robot.get_qpos()[0].numpy()
+            w, x, y, z = cam.global_pose.q[0].numpy()
+            Rc_sim = Rotation.from_quat([x, y, z, w]).as_matrix()
+            np.testing.assert_allclose(wrist_camera_rotation(K.fk(q[:5])[1]), Rc_sim, atol=1e-4)
+            img_right, img_up = -Rc_sim[:, 1], Rc_sim[:, 2]
+            for dphone, axis_vec in (((0.04, 0, 0), img_right), ((0, 0, -0.04), img_up), ((0, 0.04, 0), np.array([0, 0, 1.0]))):
+                m = PhoneTeleopMapper(config={"ema_alpha_pos": 1.0, "ema_alpha_rot": 1.0})
+                m.reset(q[:5])
+                p0 = K.fk(m.q_cmd)[0]
+                m.step(True, True, (0, 0, 0), (0, 0, 0))
+                for _ in range(30):
+                    qq = m.step(True, False, dphone, (0, 0, 0))
+                d = K.fk(qq)[0] - p0
+                self.assertGreater(float(d @ axis_vec), 0.02, (q_arm, dphone, d))
+        env.close()
