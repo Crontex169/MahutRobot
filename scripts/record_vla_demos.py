@@ -81,8 +81,6 @@ def parse_args(argv=None):
     ap.add_argument("--port", type=int, default=8000, help="telefon sunucusu portu")
     ap.add_argument("--no-goal-marker", action="store_true",
                     help="hedef bölgeyi pencerede gösterme (işaret zaten kayda girmez)")
-    ap.add_argument("--phone-rotation", action="store_true",
-                    help="telefonun açısı kıskacı döndürsün (eğim + bilek roll); varsayılan kapalı")
     ap.add_argument("--control-frame", choices=["wrist", "world"], default="wrist",
                     help="telefon hareketi hangi kameraya göre: wrist = kıskaç kamerası, world = front kamera")
     ap.add_argument("--no-paraphrase", action="store_true", help="hep kanonik talimat")
@@ -93,8 +91,7 @@ def make_action_source(args):
     if args.device == "phone":
         from mahut_kol.teleop.phone_webxr import PhoneActionSource
 
-        return PhoneActionSource(config={"port": args.port, "control_frame": args.control_frame,
-                                         "rotation_enabled": args.phone_rotation})
+        return PhoneActionSource(config={"port": args.port, "control_frame": args.control_frame})
     from mahut_kol.teleop.action_source import GamepadKeyboardActionSource
 
     return GamepadKeyboardActionSource()
