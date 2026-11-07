@@ -1,0 +1,217 @@
+{
+  "description": "Değerlendirme için ayrılan komutlar; kayıtta atlanır (--include-heldout ile açılır).",
+  "seed": 20261107,
+  "count": 30,
+  "commands": [
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "blue_cube",
+      "reference_object": "red_triangular_prism",
+      "relation": "FRONT",
+      "target_slot": "red_triangular_prism_FRONT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "blue_triangular_prism",
+      "reference_object": "green_cylinder",
+      "relation": "FRONT",
+      "target_slot": "green_cylinder_FRONT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "green_cylinder",
+      "reference_object": "green_cube",
+      "relation": "FRONT",
+      "target_slot": "green_cube_FRONT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "green_triangular_prism",
+      "reference_object": "red_cube",
+      "relation": "FRONT",
+      "target_slot": "red_cube_FRONT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "red_cube",
+      "reference_object": "red_cylinder",
+      "relation": "FRONT",
+      "target_slot": "red_cylinder_FRONT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "red_cylinder",
+      "reference_object": "blue_cylinder",
+      "relation": "FRONT",
+      "target_slot": "blue_cylinder_FRONT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "blue_cube",
+      "reference_object": "red_cylinder",
+      "relation": "BACK",
+      "target_slot": "red_cylinder_BACK"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "blue_cylinder",
+      "reference_object": "green_cube",
+      "relation": "BACK",
+      "target_slot": "green_cube_BACK"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "blue_triangular_prism",
+      "reference_object": "blue_cylinder",
+      "relation": "BACK",
+      "target_slot": "blue_cylinder_BACK"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "green_cube",
+      "reference_object": "blue_cube",
+      "relation": "BACK",
+      "target_slot": "blue_cube_BACK"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "red_cube",
+      "reference_object": "blue_triangular_prism",
+      "relation": "BACK",
+      "target_slot": "blue_triangular_prism_BACK"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "red_triangular_prism",
+      "reference_object": "red_cube",
+      "relation": "BACK",
+      "target_slot": "red_cube_BACK"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "blue_cylinder",
+      "reference_object": "green_cylinder",
+      "relation": "LEFT",
+      "target_slot": "green_cylinder_LEFT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "green_cube",
+      "reference_object": "red_cylinder",
+      "relation": "LEFT",
+      "target_slot": "red_cylinder_LEFT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "green_cylinder",
+      "reference_object": "blue_cube",
+      "relation": "LEFT",
+      "target_slot": "blue_cube_LEFT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "red_cube",
+      "reference_object": "red_triangular_prism",
+      "relation": "LEFT",
+      "target_slot": "red_triangular_prism_LEFT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "red_cylinder",
+      "reference_object": "red_cube",
+      "relation": "LEFT",
+      "target_slot": "red_cube_LEFT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "red_triangular_prism",
+      "reference_object": "green_triangular_prism",
+      "relation": "LEFT",
+      "target_slot": "green_triangular_prism_LEFT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "blue_cube",
+      "reference_object": "green_cube",
+      "relation": "RIGHT",
+      "target_slot": "green_cube_RIGHT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "blue_triangular_prism",
+      "reference_object": "green_triangular_prism",
+      "relation": "RIGHT",
+      "target_slot": "green_triangular_prism_RIGHT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "green_cube",
+      "reference_object": "blue_cube",
+      "relation": "RIGHT",
+      "target_slot": "blue_cube_RIGHT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "green_cylinder",
+      "reference_object": "blue_triangular_prism",
+      "relation": "RIGHT",
+      "target_slot": "blue_triangular_prism_RIGHT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "red_cylinder",
+      "reference_object": "red_triangular_prism",
+      "relation": "RIGHT",
+      "target_slot": "red_triangular_prism_RIGHT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "red_triangular_prism",
+      "reference_object": "green_cylinder",
+      "relation": "RIGHT",
+      "target_slot": "green_cylinder_RIGHT"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "blue_cube",
+      "reference_object": "blue_cylinder",
+      "relation": "TOP",
+      "target_slot": "blue_cylinder_TOP"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "blue_triangular_prism",
+      "reference_object": "red_cube",
+      "relation": "TOP",
+      "target_slot": "red_cube_TOP"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "green_cube",
+      "reference_object": "blue_cube",
+      "relation": "TOP",
+      "target_slot": "blue_cube_TOP"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "red_cube",
+      "reference_object": "green_cylinder",
+      "relation": "TOP",
+      "target_slot": "green_cylinder_TOP"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "red_cylinder",
+      "reference_object": "green_cube",
+      "relation": "TOP",
+      "target_slot": "green_cube_TOP"
+    },
+    {
+      "action": "pick_and_place",
+      "manipulated_object": "red_triangular_prism",
+      "reference_object": "red_cylinder",
+      "relation": "TOP",
+      "target_slot": "red_cylinder_TOP"
+    }
+  ]
+}
