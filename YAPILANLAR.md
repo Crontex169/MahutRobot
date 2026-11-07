@@ -221,3 +221,27 @@ Bu dosya, projenin başlangıcından bu yana gerçekleştirilen tüm araştırma
 * **Test ve Doğrulama:**
   - 4 yeni birim ve entegrasyon test modülü yazıldı (`test_command_parser.py`, `test_audio_recorder.py`, `test_stt_engine.py`, `test_voice_commander.py`).
   - Projedeki toplam 71 birim testin tamamı (`python3 -m unittest discover -s tests`) hatasız geçti.
+
+---
+
+## 15. 🗣️ VLA Eğitim Verisi Toplama Hattı (Çok Şekilli İlişkisel Yerleştirme)
+Kaynak görev tanımı: [docs/VLA_VERI_TOPLAMA_PROMPT.md](docs/VLA_VERI_TOPLAMA_PROMPT.md). Ayrıntılar: [docs/VLA_GOREV_TANIMLARI.md](docs/VLA_GOREV_TANIMLARI.md), [PROJE_REHBERI.md](PROJE_REHBERI.md) §8.
+
+* **Aşama 1 – Ortam ([multi_shape_task.py](src/mahut_kol/envs/multi_shape_task.py), [kinematics.py](src/mahut_kol/robots/kinematics.py)):**
+  * URDF'ten saf numpy FK/IK yazıldı; SAPIEN TCP pozuyla farkı < 1e-5 m. Kol düzlemi joint0 ekseninden (−0.0037, −0.0323) yanal −1.14 cm kaçık; yaklaşma yönü joint4 ekseni (link4 x'inden 10° eğik).
+  * Çalışma alanı FK örnekleme + IK doğrulamasıyla hesaplandı ([compute_workspace.py](scripts/compute_workspace.py), [workspace_map.txt](docs/workspace_map.txt)): MahutKol tam aşağı bakarak yalnızca tabana çok yakın erişebiliyor; kavrama düşeyden 45–55° eğik. Yeni alan x ∈ [0.10, 0.22], y ∈ [−0.16, 0.12] (eski SO-100 değerleri x 0.12–0.22, y ±0.10). `ROBOT_REST_QPOS` MahutKol'a göre yeniden hesaplandı.
+  * Δ 0.045 → 0.06 m; başarı toleransı xy 0.025 m (komşu yön bölgeleri örtüşmez), `MIN_PAIRWISE_DISTANCE` 0.05 → 0.065 m (açık parmak payı).
+  * TOP + üçgen prizma referansı Türkçe `ValueError`; 336 geçerli komut doğrulandı. Hedef noktası boş ve çalışma alanında tutuluyor.
+  * Başarı = yerleşti (xy + z + dik) ∧ bırakıldı (parmak açık, temas yok) ∧ 3 adım durağan. `max_episode_steps` 600.
+  * Kameralar: `front` (operatör tarafında, görüntü sağı = +y = RIGHT) + `wrist` (TCP'ye monte), ikisi 224×224; yön etiketli görsel [docs/vla_kameralar.png](docs/vla_kameralar.png).
+  * Spawn yaw'ı kol yönüne hizalı (küp 90°, prizma 120° simetri, ±15° gürültü); `object_poses` seçeneğiyle sahne birebir kurulabiliyor (değerlendirme dil testi için).
+  * `tests/test_multi_shape_task.py`'deki prizma + TOP örneği yeni kural gereği silindir referansla değiştirildi.
+* **Aşama 2 – Komut katmanı ([src/mahut_kol/commands/](src/mahut_kol/commands)):** `Command` (parser JSON ↔ reset options), İngilizce şablon + seed'li paraphrase, 5 sayısal slot, kapsama garantili ve devam ettirilebilir `BalancedCommandQueue`, 30 komutluk sabit held-out ([heldout_commands.json](configs/commands/heldout_commands.json)), queue/text/voice komut kaynakları (geçersiz komutta bölüm başlamaz).
+* **Aşama 3 – Telefon teleopu ([phone_webxr.py](src/mahut_kol/teleop/phone_webxr.py)):** Side_project'e dokunmadan FastAPI/uvicorn WebSocket protokolü ManiSkill'e uyarlandı; eğim kısıtlı DLS IK, eksen eşlemesi (telefon ileri → −x, sağ → +y, yukarı → +z), kırpma, adım sınırı, EMA, debriyaj, parmak-masa koruması. Cihazdan bağımsız `ActionSource` (telefon, PS4/klavye, scripted). Sayfa kopyası [web/index.html](src/mahut_kol/teleop/web/index.html) görev talimatını gösteriyor.
+* **Aşama 4 – Kayıt ([record_vla_demos.py](scripts/record_vla_demos.py), [src/mahut_kol/recording/](src/mahut_kol/recording)):** LeRobotDataset (0.4.4) doğrudan yazılıyor; var olan veri kümesine ekleme doğrulandı, şema uyuşmazlığında dokunmadan hata. Sidecar `mahut_episodes.jsonl`. Enter/R/Q onayı.
+* **Aşama 5 – Scripted demolar ([scripted_policy.py](src/mahut_kol/envs/scripted_policy.py), [generate_scripted_demos.py](scripts/generate_scripted_demos.py)):** yaklaş-kavra-kaldır-taşı-indir-bırak-geri çekil; eğim {50, 45, 55}° içinden seçiliyor, bırakmada kıskaç kısmen açılıyor. Bilek roll telafisi denendi, parmakları masaya indirdiği için kapalı. Başarı oranı ve hata nedenleri raporlanıyor.
+  * Ölçüm (60 bölüm, 2 distractor): 66 denemede 60 başarı (%91). Hatalar: IK erişilemez 5 (4 alma, 1 bırakma), yerleştirme ıskası 1. Prizma + TOP en zayıf hücre (4/7). Çalıştırılabilen planlarda başarı 60/61. Hız ~8 s/bölüm (iki kamera render + video kodlama dahil). 60 bölümlük küme `validate_dataset.py` ile doğrulandı: 9561 kare, tüm kapsama hücreleri dolu, held-out sızıntısı yok.
+* **Aşama 6 – Doğrulama ([validate_dataset.py](scripts/validate_dataset.py)):** şema, kare sayıları, NaN, video okunabilirliği (pyav), sidecar tutarlılığı, kapsama tabloları, held-out sızıntısı.
+* **Aşama 7 – Değerlendirme ([eval_policy.py](scripts/eval_policy.py)):** 7 boyutlu state (`qpos[:, :6]` hatası düzeltildi), iki kamera, komut JSON'undan reset; nesne/yön ve held-out başarısı, aynı sahne + farklı komutla dil duyarlılığı. `--policy scripted` duman testi.
+* **Testler:** 139 test geçiyor (yeni: `test_vla_env_rules`, `test_commands`, `test_phone_teleop`, `test_recording`, `test_scripted_pipeline`).
+* **Notlar:** `numpy 2.2.6` lerobot venv'inde sorun çıkarmadı. Yerelde torchcodec FFmpeg kütüphanelerini bulamıyor; video okumada `pyav` kullanılıyor. `scripts/train_smolvla.sh` hâlâ eski PickCube veri kümesine bağlı (eğitim bu görevin kapsamı dışında).

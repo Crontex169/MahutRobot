@@ -18,23 +18,36 @@ python3 scripts/test_voice_command.py --mode push_to_talk|vad --model base   # m
 ruff check src tests ; black src tests                 # dev bağımlılıkları (pyproject [dev])
 ```
 
-Pipeline betikleri: `scripts/collect_demos.py`, `scripts/train_smolvla.sh`, `scripts/eval_policy.py`; URDF doğrulama `scripts/check_urdf.py`.
+VLA veri hattı (`~/.venvs/lerobot/bin/python` ile; ayrıntı `PROJE_REHBERI.md` §8, `docs/VLA_GOREV_TANIMLARI.md`):
+
+```bash
+python scripts/record_vla_demos.py --device phone|gamepad --command-source queue|text|voice   # teleop kaydı
+python scripts/generate_scripted_demos.py --num-episodes N    # scripted demolar, aynı veri kümesine ekler
+python scripts/validate_dataset.py --video-check sample       # şema/kapsama/held-out sızıntı raporu
+python scripts/eval_policy.py --checkpoint <yol> | --policy scripted   # kapalı çevrim değerlendirme
+python scripts/compute_workspace.py ; python scripts/render_task_cameras.py   # çalışma alanı / kamera doğrulama
+```
+
+Varsayılan veri kökü `~/vla_data/mahut_multishape` (repo_id `local/mahut_multishape`); veri her zaman eklenir, asla silinmez. Diğer: `scripts/train_smolvla.sh` (henüz eski PickCube veri kümesine bağlı), `scripts/collect_demos.py` (eski PickCube), URDF doğrulama `scripts/check_urdf.py`.
 
 ## Mimari
 
-Paket `src/mahut_kol/` (setuptools, `where = src`). Akış: `robots` → `envs` → `teleop` → veri toplama (LeRobot formatı) → eğitim (Modal) → değerlendirme; yan modül `speech`. Eski `datasets/`, `train/`, `eval/` stub paketleri silindi; `.gitignore` içindeki `datasets/` kuralı yüzünden yeni kodu `datasets/` adlı klasöre koyma.
+Paket `src/mahut_kol/` (setuptools, `where = src`). Akış: `robots` → `envs` → `commands` → `teleop` / scripted → `recording` (doğrudan LeRobot v3 formatı) → eğitim (Modal) → değerlendirme; yan modül `speech`. Eski `datasets/`, `train/`, `eval/` stub paketleri silindi; `.gitignore` içindeki `datasets/` kuralı yüzünden yeni kodu `datasets/` adlı klasöre koyma.
 
-- **`robots/mahut_robot.py`**: `@register_agent()` ile `MahutRobot` (ManiSkill `BaseAgent`). URDF'i `assets/urdf/mahut_kol.urdf`'ten (MJCF alternatifi `assets/mahut_kol_maniskill.xml`) göreli yolla yükler; kontrolcüler `robots/controllers.py`. Eklemler: `joint0..4` + `finger_left/right`.
-- **`envs/`**: görev ortamları (`pick_cube_task`, `push_cube_task`, `minimal_task`). `multi_shape_task.py` içindeki `MultiShapeRelationalTask` 9 nesneli (3 şekil × 3 renk) ilişkisel yerleştirme görevidir; nesneleri `shape_objects.build_manipulation_objects()` üretir, üçgen prizma meshi `assets/objects/triangular_prism.obj` (`scripts/generate_prism_mesh.py` ile üretilir). Aktif olmayan nesneler z = -10.0'a "park" edilir (PhysX'in zemin fırlatmasını önlemek için); çakışmasız spawn rejection sampling ile yapılır; hedef pozlar FRONT/BACK/LEFT/RIGHT/TOP ilişkilerinden hesaplanır. Varsayılan robot `so100`, `mahut_kol` ile uyumlu.
+- **`robots/mahut_robot.py`**: `@register_agent()` ile `MahutRobot` (ManiSkill `BaseAgent`). URDF'i `assets/urdf/mahut_kol.urdf`'ten (MJCF alternatifi `assets/mahut_kol_maniskill.xml`) göreli yolla yükler; kontrolcüler `robots/controllers.py`. Eklemler: `joint0..4` + `finger_left/right` (parmak 0 = açık, 0.042 = kapalı). **`robots/kinematics.py`**: URDF'ten saf numpy FK (SAPIEN TCP ile birebir), eğim kısıtlı DLS IK, `solve_grasp_ik`, parmak-masa kontrolü. MahutKol tam aşağı bakarak çalışma alanına erişemez; kavrama düşeyden 45–55° eğik.
+- **`envs/`**: görev ortamları (`pick_cube_task`, `push_cube_task`, `minimal_task`). `multi_shape_task.py` içindeki `MultiShapeRelationalTask` 9 nesneli (3 şekil × 3 renk) ilişkisel yerleştirme görevidir; nesneleri `shape_objects.build_manipulation_objects()` üretir, üçgen prizma meshi `assets/objects/triangular_prism.obj` (`scripts/generate_prism_mesh.py` ile üretilir). Aktif olmayan nesneler z = -10.0'a "park" edilir (PhysX'in zemin fırlatmasını önlemek için); çakışmasız spawn rejection sampling ile yapılır; hedef pozlar FRONT/BACK/LEFT/RIGHT/TOP ilişkilerinden hesaplanır (Δ = 0.06 m; front kamera operatör tarafında, görüntü sağı = +y = RIGHT). Kurallar: referans prizma + TOP geçersiz (336 geçerli komut), hedef boş ve çalışma alanında, başarı = yerleşti + bırakıldı + durağan; kameralar `front` + `wrist` (224×224, sabitler dosya başında), 600 adım. Varsayılan robot `mahut_kol`. `envs/scripted_policy.py`: otomatik gösterim politikası.
+- **`commands/`**: `Command` (parser JSON ↔ reset options), İngilizce talimat şablonları, 5 slot, `BalancedCommandQueue` (devam ettirilebilir), held-out (`configs/commands/heldout_commands.json`), komut kaynakları queue/text/voice.
+- **`recording/`**: `VLADatasetWriter` (LeRobot oluştur/aç-ekle, şema koruması, sidecar `mahut_episodes.jsonl`), kayıt döngüsü ve pygame/terminal arayüzü. Paket adı bilinçli olarak `datasets` değil.
 - **`speech/`**: tamamen yerel Türkçe sesli komut hattı: `audio_recorder` (sounddevice, 16 kHz mono, push-to-talk/VAD) → `stt_engine` (faster-whisper; CUDA'da float16, CPU'da int8) → `command_parser` (kural tabanlı, Türkçe çekim/bulunma ekleri, `MultiShapeRelationalTask` uzamsal ilişkilerine eşlenir) → `voice_commander` (hepsini birleştiren `VoiceCommander`).
-- **`teleop/`** ve kökteki **`Teleoperasyonlar/`**: PS4/klavye kontrolcüleri ve demo kaydı; iki yerde benzer kod var (`utils/teleop_ps4.py` da dahil), değişiklik yaparken hangisinin kullanıldığını kontrol et.
-- **`configs/`**: `robot/`, `task/` YAML'ları.
+- **`teleop/`** ve kökteki **`Teleoperasyonlar/`**: PS4/klavye kontrolcüleri ve demo kaydı; iki yerde benzer kod var (`utils/teleop_ps4.py` da dahil), değişiklik yaparken hangisinin kullanıldığını kontrol et. `teleop/action_source.py` cihazdan bağımsız `ActionSource` (7 boyutlu `pd_joint_pos`); `teleop/phone_webxr.py` + `teleop/web/index.html` telefon WebXR teleopu (Side_project'ten uyarlanmış kopya).
+- **`configs/`**: `robot/`, `task/` YAML'ları; `commands/heldout_commands.json`.
 - **`assets/`**: robot STL mesh'leri, URDF/MJCF ve nesne meshleri. **`Side_project/`**: SO-100 MuJoCo/WebXR/webcam teleop denemeleri, ana pakete bağlı değil.
 
 ## Notlar
 
 - **`Side_project/` içindeki dosyalara DOKUNMA** (özellikle MuJoCo `webxr_teleop.py`, `ik_solver.py`, `index.html`). Gerekirse içeriği okuyup yeni dosyayı ana pakette yaz; orijinal olduğu gibi kalsın.
-- LeRobot ve VLA eğitimi için ayrı venv: `~/.venvs/lerobot` (lerobot 0.4.4 + smolvla, sistem paketlerini görür). Eğitim ileride Modal'da yapılacak, yerel GPU yalnızca simülasyon/inference.
+- LeRobot ve VLA eğitimi için ayrı venv: `~/.venvs/lerobot` (lerobot 0.4.4 + smolvla, sistem paketlerini görür; numpy 2.2.6 ile sorunsuz). Eğitim ileride Modal'da yapılacak, yerel GPU yalnızca simülasyon/inference. Yerelde torchcodec FFmpeg kütüphanelerini bulamıyor; LeRobot videolarını okurken `video_backend="pyav"` kullan.
+- Testlerde tek süreçte birden fazla ortam açılıyorsa `render_backend="cpu"` verme (SAPIEN ikinci renderer'ı açamaz); varsayılanı kullan.
 
 - **Kod tabanını keşfetmeden önce `graphify-out/GRAPH_REPORT.md`'yi oku**: graphify skill'inin ürettiği bilgi grafı özeti (topluluklar, merkez düğümler, dosya ilişkileri). Mimari/ilişki sorularında önce graphify skill'ini kullan; geniş dosya taraması yerine buradan ilgili bölgeyi bulup sadece o dosyaları aç. `graph.json`/`graph.html` büyük dosyalardır, doğrudan okuma. Grafik eskiyebilir (son güncelleme commit'i `docs(graph): ...`); büyük değişikliklerden sonra graphify ile yenile.
 - `graphify-out/` ve `.agents/` otomatik üretilmiş çıktılardır; elle düzenleme.
