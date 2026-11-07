@@ -5,6 +5,7 @@ Kayıt oturumu yardımcıları: ortam kurulumu, bölüm döngüsü ve operatör 
 
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Set
@@ -83,6 +84,9 @@ class PygameUI:
     """
 
     def __init__(self, scale: int = 3):
+        # SDL varsayılan olarak SIGINT/SIGTERM'i yakalayıp pencereye QUIT olayı gönderir; bu da
+        # betiğin "çıkılıyor" deyip sessizce kapanmasına yol açıyordu. Sinyaller Python'da kalsın.
+        os.environ.setdefault("SDL_NO_SIGNAL_HANDLERS", "1")
         import pygame
 
         self.pg = pygame
@@ -103,6 +107,7 @@ class PygameUI:
         ev = set()
         for e in self.pg.event.get():
             if e.type == self.pg.QUIT:
+                print("[Arayüz] Pencere kapatıldı (QUIT).", flush=True)
                 ev.add("quit")
             elif e.type == self.pg.KEYDOWN:
                 if e.key in (self.pg.K_RETURN, self.pg.K_KP_ENTER):
@@ -110,6 +115,7 @@ class PygameUI:
                 elif e.key == self.pg.K_r:
                     ev.add("discard")
                 elif e.key in (self.pg.K_q, self.pg.K_ESCAPE):
+                    print(f"[Arayüz] '{self.pg.key.name(e.key)}' tuşu: çıkış.", flush=True)
                     ev.add("quit")
         return ev
 

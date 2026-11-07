@@ -127,30 +127,56 @@ class VLADatasetWriter:
                     f"Var olan veri kümesi şeması uyumsuz ({self.root}); dokunulmadı:\n  - "
                     + "\n  - ".join(problems)
                 )
-            self.ds = LeRobotDataset(repo_id, root=self.root, vcodec=vcodec)
-            self.created = False
+            if int(meta.get("total_episodes", 0)) == 0 and not self._has_payload():
+                # Önceki oturum bölüm kaydetmeden kapanmış: yalnızca meta/info.json var.
+                # LeRobotDataset() böyle bir kümeyi açamıyor (eksik tasks/episodes -> Hub'dan
+                # indirmeye çalışır). Şema aynı olduğu için aynı yerde yeniden oluşturulur;
+                # tek değişen dosya 0 bölümlük info.json'dur, veri kaybı yok.
+                self.ds = self._create(repo_id, vcodec, image_writer_threads, allow_existing_root=True)
+                self.created = True
+            else:
+                self.ds = LeRobotDataset(repo_id, root=self.root, vcodec=vcodec)
+                self.created = False
         else:
             if self.root.exists() and any(self.root.iterdir()):
                 raise FileExistsError(
                     f"{self.root} boş değil ama LeRobot veri kümesi değil (meta/info.json yok); dokunulmadı."
                 )
-            if self.root.exists():
-                self.root.rmdir()  # yalnızca BOŞ dizin; LeRobotDataset.create dizini kendisi açar
-            self.ds = LeRobotDataset.create(
-                repo_id,
-                FPS,
-                features=vla_features(),
-                root=self.root,
-                robot_type=ROBOT_TYPE,
-                use_videos=True,
-                image_writer_threads=image_writer_threads,
-                vcodec=vcodec,
-            )
+            self.ds = self._create(repo_id, vcodec, image_writer_threads, allow_existing_root=self.root.exists())
             self.created = True
         if not self.created and image_writer_threads > 0:
             self.ds.start_image_writer(num_processes=0, num_threads=image_writer_threads)
         self._check_sidecar_consistency()
         self._closed = False
+
+    def _has_payload(self) -> bool:
+        """data/ ya da videos/ altında herhangi bir dosya var mı?"""
+        for sub in ("data", "videos"):
+            d = self.root / sub
+            if d.exists() and any(p.is_file() for p in d.rglob("*")):
+                return True
+        return False
+
+    def _create(self, repo_id: str, vcodec: str, image_writer_threads: int, allow_existing_root: bool):
+        from unittest import mock
+
+        from lerobot.datasets.lerobot_dataset import LeRobotDataset
+
+        kwargs = dict(
+            features=vla_features(), root=self.root, robot_type=ROBOT_TYPE, use_videos=True,
+            image_writer_threads=image_writer_threads, vcodec=vcodec,
+        )
+        if not allow_existing_root:
+            return LeRobotDataset.create(repo_id, FPS, **kwargs)
+        # LeRobot create() kök dizini exist_ok=False ile açar; var olan (boş ya da yalnızca
+        # 0 bölümlük meta içeren) kökte hiçbir şey silmeden oluşturmak için exist_ok zorlanır.
+        orig_mkdir = Path.mkdir
+
+        def _mkdir(path_self, mode=0o777, parents=False, exist_ok=False):
+            return orig_mkdir(path_self, mode=mode, parents=parents, exist_ok=True)
+
+        with mock.patch.object(Path, "mkdir", _mkdir):
+            return LeRobotDataset.create(repo_id, FPS, **kwargs)
 
     # ------------------------------------------------------------------
     @property

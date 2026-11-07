@@ -64,6 +64,17 @@ class TestWriter(unittest.TestCase):
             self.assertAlmostEqual(float(last["observation.images.front"].mean()), 200 / 255, delta=0.03)
             np.testing.assert_array_equal(last["command.slots"].numpy(), [2, 0, 0, 1, 3])
 
+    def test_reopen_dataset_with_zero_episodes(self):
+        """Bölüm kaydedilmeden kapanan oturumdan sonra veri kümesi yeniden açılabilmeli."""
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d) / "ds"
+            VLADatasetWriter(root, image_writer_threads=0).close()
+            with VLADatasetWriter(root, image_writer_threads=0) as w:
+                self.assertEqual(w.num_episodes, 0)
+                w.add_episode(fake_frames(4), episode_meta(CMD, "x", 0, "teleop", False, True, 1.0))
+            with VLADatasetWriter(root, image_writer_threads=0) as w:
+                self.assertEqual(w.num_episodes, 1)
+
     def test_schema_mismatch_is_untouched(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d) / "ds"
