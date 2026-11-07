@@ -111,3 +111,33 @@ class TestWriter(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestGoalOverlay(unittest.TestCase):
+    """Hedef bölge işareti yalnızca ekrana çizilir; kaydedilen gözlem değişmez."""
+
+    def test_overlay_projects_and_leaves_obs_clean(self):
+        import os
+
+        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+        import numpy as np
+
+        from mahut_kol.recording.session import PygameUI, goal_overlay, goal_region_world, make_env
+
+        env = make_env()
+        obs, _ = env.reset(seed=3)
+        ov = goal_overlay(env)
+        self.assertIn("front", ov)
+        ring, center = ov["front"]
+        self.assertEqual(ring.shape, (32, 2))
+        self.assertTrue(np.all((center >= 0) & (center < 224)), center)
+        # Merkez, hedef konumun izdüşümüyle aynı; daire yüzeyde (TOP değil -> masa)
+        pts = goal_region_world(env)
+        self.assertAlmostEqual(float(pts[-1, 2]), 0.001, places=3)
+        before = {c: obs["sensor_data"][c]["rgb"].clone() for c in ("front", "wrist")}
+        ui = PygameUI(scale=1)
+        ui.update(obs, "test", False, overlay=ov)
+        ui.close()
+        for c in before:
+            self.assertTrue(bool((obs["sensor_data"][c]["rgb"] == before[c]).all()))
+        env.close()

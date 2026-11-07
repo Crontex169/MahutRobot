@@ -266,7 +266,10 @@ dene, **Q** çık. Held-out komutlar kayıtta atlanır (`--include-heldout` ile 
    pencerede "Telefon bekleniyor / debriyaja basın" yazar ve kare kaydedilmez. Süre dolarsa
    bölüm atılır ve beklemeden sıradaki sahne gelir. Terminalde saniyede bir `[Telefon] ...` tanı
    satırı paket hızını, debriyajı, telefon deltasını ve hedef/gerçek TCP'yi gösterir.
-8. Kaydırıcı: %100 tam açık, %0 kapalı. Nesneyi kavrayıp hedefe koyun, kaydırıcıyı açarak bırakın.
+8. Pencerede hedef **kabul bölgesi** yarı saydam siyah daireyle (yarıçap 2,5 cm, beyaz nokta =
+   tam hedef) iki kamerada da gösterilir; başarıda kenarı yeşile döner. İşaret sahneye eklenmez,
+   yalnızca ekrana çizilir: kaydedilen görüntüler işaretsizdir (`--no-goal-marker` ile kapatılır).
+   Kaydırıcı: %100 tam açık, %0 kapalı. Nesneyi kavrayıp hedefe koyun, kaydırıcıyı açarak bırakın.
 9. Başarı algılanınca pencere yeşile döner: **Enter** kaydet, **R** at. Telefondaki "Sıfırla"
    düğmesi bölümü atıp yeniden başlatır.
 10. Ters giden bir eksen varsa `src/mahut_kol/teleop/phone_webxr.py` içindeki `CONFIG["axis_signs"]`

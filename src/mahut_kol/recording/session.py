@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Set
 
 import numpy as np
 
-from mahut_kol.envs.multi_shape_task import DEFAULT_MAX_EPISODE_STEPS
+from mahut_kol.envs.multi_shape_task import DEFAULT_MAX_EPISODE_STEPS, SUCCESS_XY_TOLERANCE
 
 ENV_ID = "MahutKol-MultiShapeRelational-v1"
 
@@ -47,6 +47,64 @@ class EpisodeResult:
 
 
 # ---------------------------------------------------------------------------
+# Hedef bölge işareti (yalnızca operatör ekranı)
+# ---------------------------------------------------------------------------
+
+Overlay = Dict[str, List[np.ndarray]]  # kamera adı -> [poligon (N, 2) piksel, merkez (1, 2) piksel]
+
+
+def goal_region_world(env, n: int = 32) -> Optional[np.ndarray]:
+    """
+    Kabul bölgesinin dünya noktaları (n, 3): hedefin oturma yüzeyinde (masa ya da TOP'ta
+    referansın üstü), yarıçapı SUCCESS_XY_TOLERANCE olan daire. Son satır merkezdir.
+    """
+    u = env.unwrapped
+    try:
+        tgt = u.get_relational_target_position()[0].cpu().numpy().astype(np.float64)
+    except Exception:
+        return None
+    z = tgt[2] - float(getattr(u, "object_height", 0.0)) / 2.0 + 0.001
+    a = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    ring = np.stack([tgt[0] + SUCCESS_XY_TOLERANCE * np.cos(a), tgt[1] + SUCCESS_XY_TOLERANCE * np.sin(a),
+                     np.full(n, z)], axis=1)
+    return np.vstack([ring, [tgt[0], tgt[1], z]])
+
+
+def project_points(params: Dict[str, Any], pts: np.ndarray) -> Optional[np.ndarray]:
+    """OpenCV kamerası: dünya noktaları -> piksel (N, 2); kameranın arkasındaysa None."""
+
+    def _np(x):
+        x = x.cpu().numpy() if hasattr(x, "cpu") else np.asarray(x)
+        return x[0] if x.ndim == 3 else x
+
+    E, K = _np(params["extrinsic_cv"]), _np(params["intrinsic_cv"])
+    pc = (E[:, :3] @ pts.T + E[:, 3:4]).T
+    if np.any(pc[:, 2] <= 1e-4):
+        return None
+    uv = (K @ pc.T).T
+    return uv[:, :2] / uv[:, 2:3]
+
+
+def goal_overlay(env, cameras=("front", "wrist")) -> Overlay:
+    """
+    Hedef bölgenin kamera görüntülerindeki pikselleri. Bu işaret SAHNEYE EKLENMEZ, yalnızca
+    pygame penceresine çizilir: kaydedilen gözlemler işaretsiz kalır (aksi halde politika
+    işarete bakmayı öğrenir ve gerçek kullanımda işaret olmadığı için başarısız olurdu).
+    """
+    pts = goal_region_world(env)
+    if pts is None:
+        return {}
+    params = env.unwrapped.get_sensor_params()
+    out: Overlay = {}
+    for cam in cameras:
+        if cam in params:
+            uv = project_points(params[cam], pts)
+            if uv is not None:
+                out[cam] = [uv[:-1], uv[-1:]]
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Operatör arayüzü
 # ---------------------------------------------------------------------------
 
@@ -60,7 +118,7 @@ class TerminalUI:
     def show_instruction(self, text: str, extra: str = "") -> None:
         print(f"\n🗣️  TALİMAT: {text}  {extra}", flush=True)
 
-    def update(self, obs, status: str, success: bool) -> Set[str]:
+    def update(self, obs, status: str, success: bool, overlay: Optional[Overlay] = None) -> Set[str]:
         return set()
 
     def confirm(self, prompt: str) -> str:
@@ -119,14 +177,17 @@ class PygameUI:
                     ev.add("quit")
         return ev
 
-    def update(self, obs, status: str, success: bool) -> Set[str]:
+    def update(self, obs, status: str, success: bool, overlay: Optional[Overlay] = None) -> Set[str]:
         pg = self.pg
         self.screen.fill((20, 20, 24))
+        side = 224 * self.scale
         for i, cam in enumerate(("front", "wrist")):
             img = obs["sensor_data"][cam]["rgb"][0].cpu().numpy()
             surf = pg.surfarray.make_surface(np.transpose(img, (1, 0, 2)))
-            surf = pg.transform.scale(surf, (224 * self.scale, 224 * self.scale))
-            self.screen.blit(surf, (i * 224 * self.scale, 0))
+            surf = pg.transform.scale(surf, (side, side))
+            if overlay and cam in overlay:
+                self._draw_goal(surf, overlay[cam], img.shape[1], img.shape[0], success)
+            self.screen.blit(surf, (i * side, 0))
         y0 = 224 * self.scale + 8
         col = (80, 230, 120) if success else (235, 235, 235)
         self.screen.blit(self.font.render(self.instruction, True, col), (10, y0))
@@ -135,6 +196,19 @@ class PygameUI:
         self.screen.blit(self.small.render(hint, True, col), (10, y0 + 56))
         pg.display.flip()
         return self._events()
+
+    def _draw_goal(self, surf, polys, w: int, h: int, success: bool) -> None:
+        """Kabul bölgesi: yarı saydam siyah daire + kenar + merkez noktası (yalnızca ekranda)."""
+        pg = self.pg
+        sx, sy = surf.get_width() / w, surf.get_height() / h
+        ring = [(float(x * sx), float(y * sy)) for x, y in polys[0]]
+        cx, cy = float(polys[1][0][0] * sx), float(polys[1][0][1] * sy)
+        layer = pg.Surface(surf.get_size(), pg.SRCALPHA)
+        pg.draw.polygon(layer, (0, 0, 0, 120), ring)
+        edge = (40, 200, 90, 255) if success else (0, 0, 0, 255)
+        pg.draw.polygon(layer, edge, ring, width=2)
+        pg.draw.circle(layer, (255, 255, 255, 220), (cx, cy), 3)
+        surf.blit(layer, (0, 0))
 
     def confirm(self, prompt: str) -> str:
         print(f"{prompt}  (pencerede Enter=kaydet, R=at, Q=çık)", flush=True)
@@ -160,6 +234,7 @@ def wait_for_start(
     ui=None,
     poll_s: float = 0.05,
     timeout_s: Optional[float] = None,
+    overlay: Optional[Overlay] = None,
 ) -> str:
     """
     Bölümden önce operatörü bekler; simülasyon adımlanmaz (sahne sabit, kare kaydedilmez).
@@ -178,7 +253,8 @@ def wait_for_start(
         last_hint = hint
         ev: Set[str] = set()
         if ui is not None:
-            ev |= ui.update(obs, f"⏳ {hint}", False)
+            ev |= ui.update(obs, f"⏳ {hint}", False, overlay=overlay) if overlay else \
+                ui.update(obs, f"⏳ {hint}", False)
         ev |= actions.poll_events()
         if "quit" in ev:
             return "quit"
@@ -202,6 +278,7 @@ def run_episode(
     realtime_hz: Optional[float] = None,
     stop_on_success: bool = True,
     step_cb: Optional[Callable[[int, Dict[str, Any]], None]] = None,
+    overlay_fn: Optional[Callable[[], Overlay]] = None,
 ) -> EpisodeResult:
     """
     Gözlem -> eylem -> kare kaydı -> env.step döngüsü. Kare, eylemden ÖNCEKİ gözlem ile o
@@ -225,7 +302,9 @@ def run_episode(
         success = bool(info["success"].item())
         ev: Set[str] = set()
         if ui is not None:
-            ev |= ui.update(obs, status_fn() if status_fn else "", success)
+            ov = overlay_fn() if overlay_fn else None
+            ev |= ui.update(obs, status_fn() if status_fn else "", success, overlay=ov) if ov else \
+                ui.update(obs, status_fn() if status_fn else "", success)
         if events_fn is not None:
             ev |= events_fn()
         if "quit" in ev:

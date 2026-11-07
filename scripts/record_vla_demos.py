@@ -54,6 +54,7 @@ TELEOP_MAX_STEPS = 1200
 from mahut_kol.recording.session import (  # noqa: E402
     PygameUI,
     TerminalUI,
+    goal_overlay,
     make_env,
     run_episode,
     wait_for_start,
@@ -78,6 +79,8 @@ def parse_args(argv=None):
     ap.add_argument("--include-heldout", action="store_true", help="held-out komutları da kaydet")
     ap.add_argument("--no-display", action="store_true", help="pygame penceresi yerine terminal")
     ap.add_argument("--port", type=int, default=8000, help="telefon sunucusu portu")
+    ap.add_argument("--no-goal-marker", action="store_true",
+                    help="hedef bölgeyi pencerede gösterme (işaret zaten kayda girmez)")
     ap.add_argument("--control-frame", choices=["wrist", "world"], default="wrist",
                     help="telefon hareketi hangi kameraya göre: wrist = kıskaç kamerası, world = front kamera")
     ap.add_argument("--no-paraphrase", action="store_true", help="hep kanonik talimat")
@@ -141,7 +144,8 @@ def main(argv=None):
             hint = getattr(actions, "start_hint", lambda: "")()
             if hint:
                 print(f"⏳ {hint}", flush=True)
-            start = wait_for_start(obs, actions, ui)
+            overlay_fn = None if args.no_goal_marker else (lambda: goal_overlay(env))
+            start = wait_for_start(obs, actions, ui, overlay=overlay_fn() if overlay_fn else None)
             if start == "quit":
                 print("👋 Çıkılıyor.")
                 break
@@ -160,6 +164,7 @@ def main(argv=None):
                 events_fn=actions.poll_events,
                 on_success=lambda s: actions.publish_status(instruction=instruction, success=True),
                 realtime_hz=FPS,
+                overlay_fn=overlay_fn,
             )
             if res.aborted == "quit":
                 print("👋 Çıkılıyor (bu bölüm kaydedilmedi).")
