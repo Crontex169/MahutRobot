@@ -24,11 +24,28 @@ VLA veri hattı (`~/.venvs/lerobot/bin/python` ile; ayrıntı `PROJE_REHBERI.md`
 python scripts/record_vla_demos.py --device phone|gamepad --command-source queue|text|voice   # teleop kaydı
 python scripts/generate_scripted_demos.py --num-episodes N    # scripted demolar, aynı veri kümesine ekler
 python scripts/validate_dataset.py --video-check sample       # şema/kapsama/held-out sızıntı raporu
-python scripts/eval_policy.py --checkpoint <yol> | --policy scripted   # kapalı çevrim değerlendirme
+python scripts/eval_policy.py --checkpoint <yol>|latest | --policy scripted   # kapalı çevrim değerlendirme (ACT one-hot / SmolVLA otomatik)
+python scripts/open_loop_check.py --checkpoint <yol> --root <veri>   # açık çevrim ezber hatası
 python scripts/compute_workspace.py ; python scripts/render_task_cameras.py   # çalışma alanı / kamera doğrulama
 ```
 
-Varsayılan veri kökü `~/vla_data/mahut_multishape` (repo_id `local/mahut_multishape`); veri her zaman eklenir, asla silinmez. Diğer: `scripts/train_smolvla.sh` (henüz eski PickCube veri kümesine bağlı), `scripts/collect_demos.py` (eski PickCube), URDF doğrulama `scripts/check_urdf.py`.
+Modal eğitim (`cloud/`, ayrıntı `PROJE_REHBERI.md` §9; Modal kimlik doğrulamasını kullanıcı yapar):
+
+```bash
+python cloud/mahut_cloud.py upload --src <veri_kökü> --name <sürümlü_ad>      # ezmez, var olan ad hata
+python scripts/make_act_dataset.py --src <kök> --dst <kök>_act                 # ACT için 17 boyutlu one-hot türev küme
+python cloud/mahut_cloud.py train --config configs/training/{smolvla,act}.yaml --run <benzersiz_ad> [--resume] [--gpu "L4,A10"]
+python cloud/mahut_cloud.py download --run <ad> ; python cloud/mahut_cloud.py ls
+```
+
+Eğitim devri (`cloud/devir.py`, ayrıntı `PROJE_REHBERI.md` §10, arkadaş kılavuzu `docs/EGITIM_DEVIR_KILAVUZU.md`; yalnızca modal+pyyaml gerekir, herkes KENDİ Modal hesabını kullanır):
+
+```bash
+python cloud/devir.py sabit-olustur --surum 1 --veri <kök> [--act-veri <kök>_act]   # Data_Model/sabit/sabit_v1.tar
+python cloud/devir.py kur ; python cloud/devir.py basla|devam --hat H --kisi K --adim N ; python cloud/devir.py paketle --hat H --kisi K
+```
+
+Varsayılan veri kökü `~/vla_data/mahut_multishape` (repo_id `local/mahut_multishape`); veri her zaman eklenir, asla silinmez. Diğer: `scripts/collect_demos.py` (eski PickCube), URDF doğrulama `scripts/check_urdf.py`.
 
 ## Mimari
 
@@ -40,7 +57,9 @@ Paket `src/mahut_kol/` (setuptools, `where = src`). Akış: `robots` → `envs` 
 - **`recording/`**: `VLADatasetWriter` (LeRobot oluştur/aç-ekle, şema koruması, sidecar `mahut_episodes.jsonl`), kayıt döngüsü ve pygame/terminal arayüzü. Paket adı bilinçli olarak `datasets` değil.
 - **`speech/`**: tamamen yerel Türkçe sesli komut hattı: `audio_recorder` (sounddevice, 16 kHz mono, push-to-talk/VAD) → `stt_engine` (faster-whisper; CUDA'da float16, CPU'da int8) → `command_parser` (kural tabanlı, Türkçe çekim/bulunma ekleri, `MultiShapeRelationalTask` uzamsal ilişkilerine eşlenir) → `voice_commander` (hepsini birleştiren `VoiceCommander`).
 - **`teleop/`** ve kökteki **`Teleoperasyonlar/`**: PS4/klavye kontrolcüleri ve demo kaydı; iki yerde benzer kod var (`utils/teleop_ps4.py` da dahil), değişiklik yaparken hangisinin kullanıldığını kontrol et. `teleop/action_source.py` cihazdan bağımsız `ActionSource` (7 boyutlu `pd_joint_pos`); `teleop/phone_webxr.py` + `teleop/web/index.html` telefon WebXR teleopu (Side_project'ten uyarlanmış kopya).
-- **`configs/`**: `robot/`, `task/` YAML'ları; `commands/heldout_commands.json`.
+- **`cloud/`**: Modal eğitim hattı (`modal_app.py` imaj+Volume+uzak fonksiyon, `train_entry.py` koşu/devam mantığı, `mahut_cloud.py` CLI). Koşu ayarları `configs/training/*.yaml`. ACT dil almaz: `commands/onehot.py` 5 slotu 17 boyutlu `observation.environment_state`'e çevirir (eğitim türev veri kümesiyle, `eval_policy.py` aynı fonksiyonla).
+- **`cloud/devir.py` + `devir_lib.py`**: eğitimin kişiler arası devri (güvenli tar + manifest/sha256, restore, çatallanma, kredi koruması). `Data_Model/` (Drive ile aynı düzen) git'e girmez, yalnızca `Data_Model/README.md` izlenir. `MAHUT_VOLUME_SUFFIX` yalnızca teste özeldir.
+- **`configs/`**: `robot/`, `task/`, `training/` YAML'ları (`training/*.yaml` içinde `maliyet` kredi modeli); `commands/heldout_commands.json`.
 - **`assets/`**: robot STL mesh'leri, URDF/MJCF ve nesne meshleri. **`Side_project/`**: SO-100 MuJoCo/WebXR/webcam teleop denemeleri, ana pakete bağlı değil.
 
 ## Notlar

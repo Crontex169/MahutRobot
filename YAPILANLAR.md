@@ -245,3 +245,72 @@ Kaynak görev tanımı: [docs/VLA_VERI_TOPLAMA_PROMPT.md](docs/VLA_VERI_TOPLAMA_
 * **Aşama 7 – Değerlendirme ([eval_policy.py](scripts/eval_policy.py)):** 7 boyutlu state (`qpos[:, :6]` hatası düzeltildi), iki kamera, komut JSON'undan reset; nesne/yön ve held-out başarısı, aynı sahne + farklı komutla dil duyarlılığı. `--policy scripted` duman testi.
 * **Testler:** 139 test geçiyor (yeni: `test_vla_env_rules`, `test_commands`, `test_phone_teleop`, `test_recording`, `test_scripted_pipeline`).
 * **Notlar:** `numpy 2.2.6` lerobot venv'inde sorun çıkarmadı. Yerelde torchcodec FFmpeg kütüphanelerini bulamıyor; video okumada `pyav` kullanılıyor. `scripts/train_smolvla.sh` hâlâ eski PickCube veri kümesine bağlı (eğitim bu görevin kapsamı dışında).
+
+## 16. ☁️ Modal Eğitim Hattı ve Uçtan Uca Kısa Deneme (2026-11-09)
+Kaynak görev: [docs/VLA_MODAL_EGITIM_PROMPT.md](docs/VLA_MODAL_EGITIM_PROMPT.md). Kullanım: [PROJE_REHBERI.md](PROJE_REHBERI.md) §9. Amaç iyi model değil, **verinin Modal'da eğitilebildiğinin ve çıkan checkpoint'in yerelde kapalı çevrim çalıştığının kanıtı**.
+
+* **Deneme veri kümesi:** `~/vla_data/mahut_smoke_v1` (repo `local/mahut_smoke_v1`), 250 scripted bölüm, 39 895 kare, 269 denemede %92,9 başarı, ~8–9,7 sn/bölüm (yaklaşık 36 dk). `validate_dataset.py` geçti: tüm kapsama hücreleri dolu (manipüle nesne × yön en az 4), held-out sızıntısı yok, 20 bölümün videosu okundu. Hatalar: IK erişilemez 14, yerleştirme ıskası 4, kavrama 1.
+* **Teleop / scripted uzunluk farkı:** scripted 154–181 adım (ort. 159,6 = 8,0 sn, neredeyse sabit); teleop (`mahut_multishape`, şu an 3 bölüm) 294–424 adım (ort. 376 = 18,8 sn). Teleop ~2,4× uzun ve değişken (duraklama, düzeltme). Davranış değiştirilmedi.
+* **Hat ([cloud/](cloud)):** Modal imajı yerel sürümlerle aynı sabitlenmiş paketlerle (torch 2.6.0, lerobot 0.4.4, transformers 4.57.6, numpy 2.2.6, av 15.1.0 …; Python 3.10.17 vs yerel 3.10.12; ffmpeg 5.1.9; Modal imajında SAPIEN/ManiSkill yok). Volume'lar `mahut-datasets`, `mahut-runs` (HF önbelleği dahil). Yükleme/indirme/başlatma [mahut_cloud.py](cloud/mahut_cloud.py); koşu ve devam mantığı [train_entry.py](cloud/train_entry.py); ayarlar [configs/training/](configs/training). Var olan veri/koşu adı hata verir, silme yok.
+* **Politikalar:** SmolVLA (`lerobot/smolvla_base`, `front→camera1`, `wrist→camera2`, `empty_cameras=1`); ACT (dilsiz, 17 boyutlu one-hot `observation.environment_state`). ACT için **türev veri kümesi** seçildi ([make_act_dataset.py](scripts/make_act_dataset.py)): lerobot 0.4.4 ENV girdisini yalnızca `observation.environment_state` sütunundan alır; sarmalayıcı `make_dataset/__getitem__` monkeypatch'i gerektirir (sürüme kırılgan), türev küme ise standart `lerobot-train` ile yamasız çalışır. Kaynak değişmez, videolar sabit bağlantıyla paylaşılır.
+* **Doğrulanan riskler:** (1) `command.slots` (int64, `observation.` öneksiz) `dataset_to_policy_features` tarafından atlanıyor; batch'te kalıyor ama stats/collate/politika hatası vermedi (iki politikada da). (2) smolvla_base yapılandırması state shape (6,) ve 3 kamera taşıyor; eğitimde kaydedilen config'te state (6,) kalıyor, gerçek veri 7 boyutlu (pad edildiği için sorunsuz çalıştı ve eval hatasız). (3) Video arka ucu `pyav` açıkça seçili. (4) Modal Volume'da `checkpoints/last` sembolik bağı sorunsuz; yine de devam mantığı sayısal checkpoint klasörlerini tarar.
+* **Kesilme/devam:** `Retries` + sabit `launch_id`. 1 dk timeout'lu ACT koşusunda gerçek zaman aşımı iki kez yaşandı, koşu her seferinde son checkpoint'ten (500, 800) devam edip 800 adımı tamamladı.
+
+### Ölçümler (batch 16; maliyet sütunu = liste fiyatı × süre ÖN TAHMİNİDİR, aşağıdaki gerçek faturaya bakın)
+| Koşu | GPU | Adım | Süre (konteyner) | Adım/sn | Tahmini maliyet | Loss |
+|---|---|---|---|---|---|---|
+| act_duman_01 | L4 | 300 | 68 sn | 9,8 | $0,015 | 25,4 → 2,68 |
+| act_duman_01 devam | A10 | 300→500 | 58 sn | 9,4 | $0,018 | 2,57 → 2,17 (adım sayacı 320'den devam) |
+| smolvla_duman_01 | A10 | 300 | 204 sn | 1,88 | $0,063 | 0,224 → 0,056 |
+| smolvla_duman_01 devam | A10 | 300→400 | 87 sn | 1,92 | ~$0,027 | 0,051 → 0,054 |
+| act_timeout_01 (1 dk timeout, 3 deneme) | A10 | 800 | ~140 sn | 9,3 | ~$0,04 | – |
+| act_ezber_01 (10 bölüm) | A10 | 3000 | 369 sn | 9,9 | $0,114 | 25 → 0,373 |
+| smolvla_ezber_01 (10 bölüm) | A10 | 2000 | 1135 sn | 1,90 | $0,351 | 0,357 → 0,008 |
+
+**Gerçek harcama** (`modal billing report --for today --show-resources`, 2026-11-09): toplam **$0,749** = A10G $0,620 + L4 $0,016 + CPU $0,092 + bellek $0,019 + ağ $0,002 (ön tahminim $0,63 idi; fark açılış/model yükleme süresi, kesilen denemeler ve gerçek CPU/RAM). Örn. smolvla_ezber_01 gerçek $0,392 (tahmin $0,351), 1 dk timeout'lu act_timeout_01 gerçek ≈ $0,147 (tahmin ~$0,04). `modal billing summary` aylık: hesaplama $0,75, Volume $0,70 (ücretsiz depolamayla sıfırlanıyor), krediyle ödenen: fatura $0. Tahmin için çarpan ≈ 1,2 kullanın. Raporlanan `on_tahmin_usd` yalnızca ön tahmindir.
+Not: L4 kapasitesi bir denemede 13 dk bulunamadı (ücret işlemez); iş durdurulup yedekli `"L4,A10"` listesiyle yeniden başlatıldı, sonraki tüm koşular A10'da çalıştı.
+
+**Ezber (açık çevrim, ilk 10 bölüm, 10 adımlık eylem parçası, MAE rad):** ACT ezber 0,023, SmolVLA ezber 0,019; ortalama-eylem tabanı 0,187, sıfır eylem 0,442. Duman checkpoint'leri: ACT (500 adım) 0,093, SmolVLA (300 adım) 0,056. Yani loss düşüşü veri/normalizasyon/eylem eşlemesinde hata olmadığını gösteriyor (model tabanın ~%10'una iniyor).
+
+### Yerel kapalı çevrim (RTX 4060 8 GB)
+Dört checkpoint (ACT/SmolVLA × duman/ezber) `eval_policy.py` ile 5 eğitim komutu bölümü (duman olanlarda + 1 held-out + 1 dil sahnesi) hatasız tamamlandı; hepsi **başarı 0/5** (beklenen: yeni sahneler, çok kısa eğitim). Eylemler sonlu, eklem aralıklarında (ör. joint1 0,04–1,79; parmak 0–0,062). Kamera adı/boyut/normalizasyon ve komut girdisi hatası yok.
+* Bellek: SmolVLA çıkarım torch tepe 925 MiB (ayrılan 958), tüm GPU (SAPIEN + masaüstü dahil, boşta 577) tepe 1860 MiB; ACT 227 MiB, toplam 1160 MiB.
+* Hız: simülasyon dahil döngü SmolVLA ~125 adım/sn, ACT ~250 adım/sn (hedef 20 Hz); eylem parçası hesaplanan adımda tek seferlik sıçrama SmolVLA ≈ 370 ms, ACT ≈ 170–230 ms (50 adımda bir).
+* `eval_policy.py` düzeltmeleri: ACT için one-hot girdi (eğitimle aynı `commands/onehot.py`), SmolVLA kamera eşlemesi checkpoint'teki ön işlemciden (çift eşleme yok), `policy_stats` (eylem aralığı, gecikme, GPU belleği), `--checkpoint latest` artık `~/vla_runs` altındaki en yenisi.
+
+### Fizibilite notları (doğrulanmadı = belirtildi)
+* **pi0 ailesi yerelde:** Hugging Face model kartları pi0_base ve pi05_base için "4B params", F32 gösteriyor (bellek gereksinimi yazmıyor). bf16'da yalnızca ağırlıklar ≈ 8 GB: 8 GB'lık 4060'a sığmaz (SAPIEN ve aktivasyonlar ayrı). Yerel çıkarım için nicemleme ya da daha büyük GPU gerekir; denenmedi.
+* **Modal'da SAPIEN render:** Modal dokümanları yalnızca CUDA/hesaplama destekliyor; Vulkan/OpenGL/EGL (başsız render) için bir ifade yok. **Test edilmedi**; sim değerlendirmesi Modal'da kurulmadı (yerel yol engelli değil).
+* Yerel eğitim hatları (A10) SmolVLA ~1,9 adım/sn: smolvla_base için 2000 bölümlük tam eğitim tahmini aşağıdaki bitiş raporunda.
+
+### Bağımsız inceleme sonrası düzeltmeler
+* **Yarım checkpoint:** `train_entry.checkpoint_is_complete`: `pretrained_model/{model.safetensors,train_config.json}` + `training_state/{training_step.json, rng_state.safetensors, optimizer_state.safetensors, optimizer_param_groups.json}` ve zamanlayıcı kullanılıyorsa `scheduler_state.json`. ACT zamanlayıcı kullanmaz (ölçüldü: ACT'te `scheduler_state.json` YOK), bu yüzden bu dosya koşullu aranır. Eksikse bir önceki tam checkpoint'e düşülür; hiç tam yoksa yeni deneme klasörü açılır (yarım klasör silinmez).
+* **Hard link:** `make_act_dataset.py` artık yalnızca `videos/` dosyalarını bağlar; `meta/` ve sidecar'lar kopyalanır. Önceki sürümle `~/vla_data/mahut_multishape` üzerinde yapılan ACT türev denemesinde (scratchpad `act_test/`) `mahut_episodes.jsonl`, `command_queue_state.json`, `meta/*` kullanıcının gerçek verisine **hard link** olarak bağlanmıştı (veriye yazılmadı, hasar yok; o klasöre dokunulmuyor). `~/vla_data/mahut_smoke_v1_act` ise kendi smoke verimle aynı şekilde bağlı (yalnızca benim verim).
+* **Kalıcı hata:** config/veri/koşu adı hatası (`FileNotFoundError`, `FileExistsError`, `ValueError`, `KeyError`) ya da ilk adımdan önce çıkış (rc≠0 ve hiç adım yok) artık yeniden denenmez (`status: failed_permanent`, yerel çıkış kodu 1). Adım atıldıktan sonraki hatalar (OOM, kesinti) hâlâ retry + checkpoint'ten devam. Sınır: ilk adımdan önceki geçici hatalar (ör. ağ) da kalıcı sayılır, elle yeniden başlatılır.
+* **Testler:** `test_cloud_train_entry` (checkpoint tamlığı, ACT/SmolVLA, yarım checkpoint düşüşü), `test_mahut_cloud` (var olan koşu/veri adı, timeout tavanı, detach+GPU env, indirme koruması), `test_make_act_dataset` (yalnızca video bağı).
+* **Checkpoint boyutu ve Drive ile taşıma:** ACT 592 MB (pretrained_model 198 + training_state 394 MB), SmolVLA 1,26 GB (865 + 394 MB). Devam için gereken: `checkpoints/<adım>/pretrained_model/` (7 dosya) + `checkpoints/<adım>/training_state/` (ACT 4, SmolVLA 5 dosya) + aynı sürümlü veri kümesi (ACT için `_act` türevi) + `configs/training/*.yaml`. `download --with-training-state` ikisini de indirir ve `checkpoint_is_complete` ile doğrulandı. **Eksik:** indirilen checkpoint'i başka bir Modal hesabındaki Volume'a geri yükleyip `--resume` etmek için bir `restore` komutu yok (train_config.json içindeki yollar `/runs/runs/<koşu>/train/...`); bu bir sonraki iş.
+
+### Testler ve temizlik
+`pytest tests/` → 184 test geçti; eklenenler: test_onehot, test_cloud_train_entry, test_mahut_cloud, test_make_act_dataset eklendi. Eski, `rm -rf "$OUT"` içeren `scripts/train_smolvla.sh` kaldırıldı; `scripts/collect_demos.py` duruyor. Gerçek teleop verisi (`~/vla_data/mahut_multishape`) yalnızca okundu (ACT türev denemesi ve bir yerel SmolVLA hata ayıklama koşusu için), değiştirilmedi ve Modal'a yüklenmedi.
+
+## 17. 🔁 Eğitim Devir Sistemi: `Data_Model` + `cloud/devir.py` (2026-11-09)
+Kaynak görev: [docs/VLA_DATA_MODEL_PROMPT.md](docs/VLA_DATA_MODEL_PROMPT.md). Kullanım: [PROJE_REHBERI.md](PROJE_REHBERI.md) §10, arkadaş kılavuzu [docs/EGITIM_DEVIR_KILAVUZU.md](docs/EGITIM_DEVIR_KILAVUZU.md). Dal: `feat/data-model-devir` (`feat/modal-egitim-hatti` üstünde).
+
+* **Kod:** [cloud/devir_lib.py](cloud/devir_lib.py) (saf mantık: manifest, güvenli tar, çatallanma, git, kredi; yalnızca stdlib), [cloud/devir.py](cloud/devir.py) (`durum, sabit-olustur, kur, basla, devam, paketle, temizle`), [modal_app.py](cloud/modal_app.py) (`volume_sha`, tur kaydı `round_<launch_id>.json`, test için `MAHUT_VOLUME_SUFFIX`), `train_entry` (attempts'e `launch_id`), [Data_Model/README.md](Data_Model/README.md), `.gitignore` (`Data_Model/*`, README hariç; model tar'ı `git status`'te görünmediği doğrulandı).
+* **Restore:** koşu adı = hat adı, veri adları sabit pakette sabit → `train_config.json` mutlak yolları (`/runs/runs/<hat>/train`, `/tmp/ds/<veri>`) **yeniden yazılmadan** çalıştı. `checkpoints/last` bağı olmadan lerobot sürdürdü; adım sayacı `training_step.json`'dan (120'den) devam etti, optimizer/zamanlayıcı durumu lerobot'un `load_training_state` çağrısıyla `training_state/`'ten yüklenir (özetleri tar'la aynı). Aynı adım Volume'da varsa özet aynıysa atlanır (denendi), farklıysa hata (birim testi), geri yükleme sonrası özet yeniden doğrulanır.
+* **Gerçek uçtan uca (ACT, `mahut_smoke_v1`, 100'er adım; tek hesap, ikinci kişi = ayrı `_test2` Volume'lar):**
+
+| Tur | Kişi / Volume | Adım | Loss (ilk → son) | Süre | Not |
+|---|---|---|---|---|---|
+| 1 `basla` | deniz / varsayılan | 0→100 | 25,81 → 3,877 | 38,5 sn (A10) | iter_0001 (619 MB) |
+| 2 `devam` | ali / `_test2` | 100→200 | **3,670 (adım 120)** → 2,954 | 33,4 sn | tar `kur`+restore sonrası; parent=iter_0001 |
+| 3 `devam` | veli / `_test2` | 200→300 | 2,942 (adım 220) → 2,666 | (süre kaydedilmedi) | adım 200 zaten vardı: restore atlandı; parent=iter_0002 |
+
+  Adım sayacı kaldığı yerden sürdü, loss sıçramadı (3,877→3,670, 2,954→2,942). `parent`/`parent_iterasyon` zinciri doğru. iter_0002 checkpoint'i `eval_policy.py` ile yerelde hatasız açıldı (5 bölüm, 0/5 başarı beklenen; eylemler sonlu). Paketler e-posta, profil adı ya da yerel yol içermiyor (taranarak doğrulandı).
+* **Hatalı senaryolar (canlı):** yarım tar → "tar okunamıyor"; tek bit bozuk → "sha256 tutmuyor"; kirli git → durdu; farklı `sabit` sürümü → durdu; sabit tar yok → durdu; kredi sınırı → azami adım söylendi. Hiçbirinde Modal'a iş gönderilmedi. Çatallanma, yol kaçışı, pickle, sembolik/sert bağ, kötü ad, `temizle` kuralları birim testlerinde. `temizle --onayla` yalnızca `_test2` Volume'unda denendi (200 ve 100 silindi, 300 ve yerel tar'lar kaldı).
+* **Bulunan hata:** sert bağlı dosyalar (eski `make_act_dataset` sürümünün bıraktığı) tar'a bağ olarak yazılıp sabit tar'ı bozuyordu; düz dosya yazılacak şekilde düzeltildi ve tar artık doğrulanmadan son ada taşınmıyor (testli).
+* **Boyutlar:** `sabit_v1.tar` 341 MB (250 bölüm + ACT türevi, videolar tek kopya), ACT iterasyon tar'ı 619 MB (SmolVLA ≈ 1,26 GB). Volume ücretsiz depolama: Modal fiyat sayfası "Volumes … 1 TiB / ay ücretsiz" diyor, sonrası 0,09 USD/GiB-ay; `modal billing summary` Volume 0,70 USD'yi `free_storage` ile sıfırlıyor.
+* **Harcama:** bu görev ≈ **0,08 USD** (`modal billing summary --json` ephemeral_apps 0,747 → 0,824; ay toplamı 0,82 USD, kredi ile ödendi, fatura 0).
+* **Test Volume'ları (silinmedi):** `mahut-runs_test2`, `mahut-datasets_test2`; ayrıca varsayılan `mahut-runs` içinde `act_e2e` koşusu ve `mahut-datasets` içinde `mahut_smoke_v1_s1`, `mahut_smoke_v1_act_s1`. Yerelde `Data_Model/_test_artifaktlari/` (bilerek yarım/bozuk tar'lar) ve 3 iterasyon dosyası `Data_Model/iterasyonlar/act_e2e/`.
+* **Testler:** `test_devir_lib`, `test_devir_cli` (48 test, Modal gerektirmez).
+* **Doğrulanamayanlar:** gerçek ikinci hesap (yalnızca ayrı Volume adlarıyla taklit), Windows/macOS, Drive'a gerçek yükleme-indirme, SmolVLA ile `devir` hattı (yalnızca ACT çalıştırıldı; SmolVLA yapılandırması ve maliyet modeli birim düzeyinde), kredi bitince Modal davranışı (dokümanda yok), kartsız hesap: Modal faturalama belgesi "kullanmak için ödeme yöntemi gerekir" diyor (kullanıcı karar versin).

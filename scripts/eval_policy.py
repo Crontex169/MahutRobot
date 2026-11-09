@@ -15,7 +15,7 @@ observation.state = 7 boyutlu qpos (5 kol + 2 parmak), task = İngilizce talimat
      yerleştirme" (yanlış dil izleme) oranı.
 
 Örnekler:
-    python3 scripts/eval_policy.py --checkpoint ~/vla_runs/x/checkpoints/last/pretrained_model
+    python3 scripts/eval_policy.py --checkpoint ~/vla_runs/<koşu>/checkpoints/last/pretrained_model
     python3 scripts/eval_policy.py --checkpoint latest --episodes 40 --heldout-episodes 30 --language-scenes 10
     # Boru hattı duman testi (model yok): betik kendi oracle'ı ile çalışır
     python3 scripts/eval_policy.py --policy scripted --episodes 3 --heldout-episodes 2 --language-scenes 1
@@ -39,7 +39,8 @@ _SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "../src"))
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
-from mahut_kol.commands import BalancedCommandQueue, Command, load_heldout, to_english_instruction  # noqa: E402
+from mahut_kol.commands import BalancedCommandQueue, Command, load_heldout, to_english_instruction, to_slots  # noqa: E402
+from mahut_kol.commands.onehot import ENV_STATE_KEY, slots_to_onehot  # noqa: E402
 from mahut_kol.envs.multi_shape_task import (  # noqa: E402
     DEFAULT_MAX_EPISODE_STEPS,
     DEFAULT_NUM_DISTRACTORS,
@@ -50,7 +51,14 @@ from mahut_kol.envs.multi_shape_task import (  # noqa: E402
 from mahut_kol.recording import IMAGE_KEYS  # noqa: E402
 from mahut_kol.recording.session import make_env  # noqa: E402
 
-DEFAULT_CKPT = "~/vla_runs/smolvla_mahut_kol/checkpoints/last/pretrained_model"
+
+
+def latest_checkpoint() -> str:
+    """`--checkpoint latest`: ~/vla_runs/*/checkpoints/last/pretrained_model içinde en yeni olan."""
+    cands = list(Path("~/vla_runs").expanduser().glob("*/checkpoints/last/pretrained_model"))
+    if not cands:
+        raise FileNotFoundError("~/vla_runs altında checkpoint yok (python cloud/mahut_cloud.py download ...)")
+    return str(max(cands, key=lambda p: p.resolve().stat().st_mtime))
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +67,15 @@ DEFAULT_CKPT = "~/vla_runs/smolvla_mahut_kol/checkpoints/last/pretrained_model"
 
 
 class LeRobotPolicy:
-    """lerobot 0.4.4 politika + ön/son işlemciler. Gözlem anahtarları kayıt şemasıyla aynı."""
+    """lerobot 0.4.4 politika + ön/son işlemciler. Gözlem anahtarları EĞİTİMDEKİ (kayıt şeması) ile aynı.
+
+    * Kamera adı eşlemesi (SmolVLA: front->camera1, wrist->camera2) ve `empty_cameras` doldurması
+      checkpoint'teki ön işlemci/yapılandırmadan gelir; burada yeniden uygulanmaz (çift eşleme olmasın).
+      `--rename` yalnızca eski checkpoint'lerde ön işlemci eşlemesi eksikse içindir.
+    * ACT (dilsiz kıyas): yapılandırmada `observation.environment_state` varsa komutun 5 slotu eğitimdeki
+      `commands.onehot.slots_to_onehot` ile 17 boyutlu one-hot'a çevrilip verilir (birebir aynı kod).
+    * Dil girdisi (`task`): SmolVLA gibi dil kullanan politikalara İngilizce talimat verilir; ACT yok sayar.
+    """
 
     def __init__(self, ckpt: str, device: str | None, rename: dict):
         from lerobot.configs.policies import PreTrainedConfig
@@ -73,10 +89,23 @@ class LeRobotPolicy:
             overrides["rename_observations_processor"] = {"rename_map": rename}
         self.pre, self.post = make_pre_post_processors(cfg, pretrained_path=ckpt, preprocessor_overrides=overrides)
         self.device = cfg.device
+        self.cfg_type = cfg.type
+        self.uses_env_state = ENV_STATE_KEY in cfg.input_features
+        self.onehot = None
+        self.act_lat: list[float] = []
+        self.act_min = np.full(7, np.inf)
+        self.act_max = np.full(7, -np.inf)
+        self.n_nan = 0
+        print(f"[politika] tür={cfg.type} cihaz={cfg.device} env_state={self.uses_env_state} "
+              f"girdiler={sorted(cfg.input_features)}", flush=True)
 
-    def reset(self, env, instruction):
+    def reset(self, env, instruction, cmd=None):
         self.policy.reset()
         self.instruction = instruction
+        if self.uses_env_state:
+            if cmd is None:
+                raise ValueError("Bu politika yapılandırılmış komut (one-hot) bekliyor ama komut verilmedi")
+            self.onehot = torch.as_tensor(slots_to_onehot(to_slots(cmd)))[None]
 
     def act(self, obs, env):
         batch = {
@@ -85,15 +114,42 @@ class LeRobotPolicy:
         }
         batch["observation.state"] = obs["agent"]["qpos"][:, :7].float()  # 5 kol + 2 parmak
         batch["task"] = [self.instruction]
+        if self.uses_env_state:
+            batch[ENV_STATE_KEY] = self.onehot.clone()
+        if str(self.device).startswith("cuda"):
+            torch.cuda.synchronize()
+        t0 = time.time()
         with torch.inference_mode():
             action = self.post(self.policy.select_action(self.pre(batch)))
-        return action.cpu()
+        if str(self.device).startswith("cuda"):
+            torch.cuda.synchronize()
+        self.act_lat.append(time.time() - t0)
+        a = action.detach().float().cpu()
+        if not torch.isfinite(a).all():
+            self.n_nan += 1
+        self.act_min = np.minimum(self.act_min, a[0].numpy())
+        self.act_max = np.maximum(self.act_max, a[0].numpy())
+        return a
+
+    def stats(self) -> dict:
+        lat = np.array(self.act_lat) if self.act_lat else np.zeros(1)
+        out = {
+            "act_calls": len(self.act_lat), "nonfinite_actions": self.n_nan,
+            "action_min": self.act_min.round(3).tolist(), "action_max": self.act_max.round(3).tolist(),
+            "act_latency_ms_mean": round(float(lat.mean() * 1000), 2),
+            "act_latency_ms_p95": round(float(np.percentile(lat, 95) * 1000), 2),
+            "act_latency_ms_max": round(float(lat.max() * 1000), 2),
+        }
+        if str(self.device).startswith("cuda"):
+            out["gpu_peak_mem_mib"] = round(torch.cuda.max_memory_allocated() / 2**20, 1)
+            out["gpu_peak_reserved_mib"] = round(torch.cuda.max_memory_reserved() / 2**20, 1)
+        return out
 
 
 class ScriptedOraclePolicy:
     """Duman testi: dili ve sahneyi bilen scripted politika (model yerine)."""
 
-    def reset(self, env, instruction):
+    def reset(self, env, instruction, cmd=None):
         from mahut_kol.envs.scripted_policy import MultiShapeScriptedPolicy
 
         u = env.unwrapped
@@ -121,7 +177,7 @@ def run(env, policy, cmd: Command, seed: int, max_steps: int, paraphrase: bool, 
     start = {k: u.manipulation_objects[k].pose.p[0].cpu().numpy().copy()
              for k in [u.manipulated_object_id, u.reference_object_id] + u.distractor_object_ids}
     instruction = to_english_instruction(cmd, seed=seed if paraphrase else None)
-    policy.reset(env, instruction)
+    policy.reset(env, instruction, cmd)
     success, steps = False, 0
     for steps in range(1, max_steps + 1):
         obs, _, _, truncated, info = env.step(policy.act(obs, env))
@@ -193,7 +249,7 @@ def main(argv=None):
     if args.policy == "lerobot":
         if not args.checkpoint:
             ap.error("--checkpoint gerekli (ya da duman testi için --policy scripted)")
-        ckpt = os.path.realpath(os.path.expanduser(DEFAULT_CKPT if args.checkpoint == "latest" else args.checkpoint))
+        ckpt = os.path.realpath(os.path.expanduser(latest_checkpoint() if args.checkpoint == "latest" else args.checkpoint))
         rename = dict(r.split("=", 1) for r in args.rename)
         policy = LeRobotPolicy(ckpt, args.device, rename)
         tag = os.path.basename(os.path.dirname(ckpt))
@@ -281,6 +337,8 @@ def main(argv=None):
         "language_placed_for_other_command": rate([r["placed_for_other_command"] for r in lang_runs]),
         "elapsed_s": round(time.time() - t0, 1),
     }
+    if hasattr(policy, "stats"):
+        summary["policy_stats"] = policy.stats()
     print("\n===== ÖZET =====")
     for k, v in summary.items():
         print(f"{k}: {v}")

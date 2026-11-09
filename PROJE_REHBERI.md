@@ -48,7 +48,7 @@ Projede kullanılan robot kolu, 3D baskı parçalar, yüksek torklu **Feetech FT
        ↓ LeRobotDataset v3 (lerobot 0.4.4) + mahut_episodes.jsonl
 [Doğrulama + kapsama raporu (scripts/validate_dataset.py)]
        ↓
-[LeRobot ile Politika Eğitimi (scripts/train_smolvla.sh; ileride Modal)]
+[Modal'da politika eğitimi (cloud/mahut_cloud.py; SmolVLA / ACT)]
        ↓ (Model Checkpoint)
 [Simülasyonda Kapalı Çevrim Test (scripts/eval_policy.py)]
 ```
@@ -97,7 +97,8 @@ MahutKol/
 │   ├── compute_workspace.py  # Erişilebilir çalışma alanını FK/IK ile örnekler
 │   ├── render_task_cameras.py# front/wrist kameralarını render edip yön tanımlarını doğrular
 │   ├── make_heldout_split.py # Held-out komut listesini (bir kez) üretir
-│   ├── train_smolvla.sh      # LeRobot SmolVLA eğitim başlatıcı
+│   ├── make_act_dataset.py   # ACT için türev veri kümesi (5 slot -> 17 boyutlu one-hot)
+│   ├── open_loop_check.py    # Açık çevrim (ezber) hata ölçümü
 │   ├── eval_policy.py        # Çok şekilli görevde kapalı çevrim değerlendirme (dil testi dahil)
 │   ├── check_urdf.py         # URDF doğrulama aracı
 │   └── test_ps4.py           # (Teleoperasyonlar/ yönlendiricisi)
@@ -162,9 +163,10 @@ python scripts/check_urdf.py
 python scripts/collect_demos.py 50
 ```
 
-### 6. SmolVLA / LeRobot Model Eğitimi:
+### 6. Modal'da SmolVLA / ACT Eğitimi:
+Ayrıntı: bölüm 9.
 ```bash
-bash scripts/train_smolvla.sh 5000 8
+~/.venvs/lerobot/bin/python cloud/mahut_cloud.py train --config configs/training/smolvla.yaml --run <benzersiz_ad>
 ```
 
 ### 7. Eğitilen Modeli Simülasyonda Değerlendirme (çok şekilli görev):
@@ -173,9 +175,6 @@ bash scripts/train_smolvla.sh 5000 8
 # model olmadan boru hattı duman testi:
 ~/.venvs/lerobot/bin/python scripts/eval_policy.py --policy scripted --episodes 3 --heldout-episodes 2 --language-scenes 1
 ```
-> Not: `scripts/train_smolvla.sh` hâlâ eski PickCube veri kümesine (`~/vla_data/pick_cube_arm`)
-> göre yazılı; yeni veri kümesiyle eğitim (`~/vla_data/mahut_multishape`, kameralar
-> `observation.images.front` + `observation.images.wrist`) bir sonraki aşamanın işidir.
 
 ---
 
@@ -285,3 +284,107 @@ eğik yapılır. Nesne/hedef alanı x ∈ [0.10, 0.22], y ∈ [−0.16, 0.12] m 
 FK (SAPIEN TCP pozuyla birebir), eğim kısıtlı DLS IK; telefon teleopu ve scripted demolar aynı
 çözücüyü kullanır.
 
+---
+
+## 9. ☁️ Modal'da VLA Eğitimi (SmolVLA ve ACT)
+
+Kod: `cloud/` (`modal_app.py` imaj + uzak fonksiyonlar, `train_entry.py` koşu/devam mantığı,
+`mahut_cloud.py` komut satırı). Koşu ayarları tek yerde: `configs/training/smolvla.yaml`, `act.yaml`
+(politika, adım, batch, kaydetme sıklığı, GPU, timeout, veri adı). Wandb varsayılan kapalı.
+
+### Kurulum (bir kez)
+`~/.venvs/lerobot` içinde `modal` kurulu (1.6.3). Kimlik doğrulamayı **siz** yapın (anahtar hiçbir dosyaya yazılmaz):
+```bash
+~/.venvs/lerobot/bin/modal setup
+~/.venvs/lerobot/bin/python cloud/mahut_cloud.py check     # profil + Volume'lar
+```
+Volume'lar: `mahut-datasets` (sürümlü veri kümeleri) ve `mahut-runs` (`runs/<koşu>/`, HF model önbelleği `hf_cache/`).
+
+### Veri yükleme (sürümlü; var olan ad ASLA ezilmez)
+```bash
+# SmolVLA: ham veri kümesi
+python cloud/mahut_cloud.py upload --src ~/vla_data/mahut_smoke_v1 --name mahut_smoke_v1_r1
+# ACT (dilsiz kıyas): önce türev veri kümesi, sonra yükle
+python scripts/make_act_dataset.py --src ~/vla_data/mahut_smoke_v1 --dst ~/vla_data/mahut_smoke_v1_act
+python cloud/mahut_cloud.py upload --src ~/vla_data/mahut_smoke_v1_act --name mahut_smoke_v1_r1_act
+```
+Veri güncellenirse yeni ad kullanın (`..._r2`). Yalnızca `meta/`, `data/`, `videos/` yüklenir.
+**Gerçek teleop verisi (`~/vla_data/mahut_multishape`) bu hat denemelerinde yüklenmedi**; yüklemeden önce karar sizin.
+
+### Eğitim, devam, indirme
+```bash
+python cloud/mahut_cloud.py train --config configs/training/smolvla.yaml --run smolvla_x_01 --steps 300   # YENİ koşu
+python cloud/mahut_cloud.py train --config configs/training/smolvla.yaml --run smolvla_x_01 --steps 600 --resume  # kaldığı yerden
+python cloud/mahut_cloud.py ls [--run smolvla_x_01]
+python cloud/mahut_cloud.py download --run smolvla_x_01              # ~/vla_runs/smolvla_x_01/checkpoints/last/pretrained_model
+python cloud/mahut_cloud.py download --run smolvla_x_01 --with-training-state   # devam/taşıma için optimizer durumu dahil
+modal billing report --for today --show-resources                    # GERÇEK harcama (on_tahmin_usd yalnızca ön tahmin)
+```
+* Koşu adı benzersizdir: var olan koşu `--resume` olmadan HATA verir; silme/ezme yoktur.
+* `--detach` ile başlar (terminal kapansa da sürer). Her fonksiyonda `timeout_min` (varsayılan 30) ve en fazla 30 dk sınırı
+  (`--max-timeout-min` ile bilerek yükseltilir). `max_retries: 2`: zaman aşımı/preemption sonrası Modal aynı girdiyle
+  yeniden başlatır, `train_entry.py` son checkpoint'ten sürdürür (gerçek zaman aşımıyla doğrulandı).
+* Checkpoint `save_freq` adımda bir yazılır, Volume'a 45 sn'de bir ve çıkışta `commit` edilir.
+* GPU: `--gpu L4`; kapasite yoksa yedekli liste `--gpu "L4,A10"` (deneme sırasında L4 kapasitesi 13 dk beklendi).
+* Video okuma: `pyav` açıkça seçili (`video_backend: pyav`).
+* SmolVLA: `front`→`camera1`, `wrist`→`camera2`, `empty_cameras: 1` (smolvla_base 3 kamera ile eğitildi).
+* ACT: komut 5 slottan 17 boyutlu one-hot (`observation.environment_state`); türev veri kümesi gerekir.
+
+### Yerel değerlendirme
+```bash
+python scripts/eval_policy.py --checkpoint ~/vla_runs/<koşu>/checkpoints/last/pretrained_model --episodes 5 --heldout-episodes 1 --language-scenes 1
+python scripts/open_loop_check.py --checkpoint ... --root ~/vla_data/mahut_smoke_v1[_act] --episodes 0-9   # ezber hatası
+```
+Rapor `policy_stats` içinde eylem aralığı, çıkarım gecikmesi ve GPU bellek tepe noktasını verir.
+
+### Imaj / yerel venv farkları
+Aynı: Python 3.10 (Modal 3.10.17, yerel 3.10.12), torch 2.6.0, torchvision 0.21.0, lerobot 0.4.4, transformers 4.57.6,
+numpy 2.2.6, av 15.1.0, datasets 4.8.5, diffusers 0.35.2, accelerate 1.15.0, safetensors 0.8.0, huggingface-hub 0.35.3.
+Farklı: Modal imajında ManiSkill/SAPIEN ve `mahut_kol` YOK (yalnızca eğitim); yerel venv sistem paketlerini de görür;
+ffmpeg Debian 5.1.9 (apt); yalnızca `opencv-python-headless`; torchcodec kurulu ama kullanılmıyor.
+
+### Ölçüm tablosu (kısa denemeler, 250 scripted bölüm, batch 16)
+Ayrıntılar `YAPILANLAR.md` §16.
+
+---
+
+## 10. 🔁 Eğitimi Kişiler Arasında Devretme (Data_Model + `cloud/devir.py`)
+
+Arkadaşların adım adım izleyeceği kılavuz: [docs/EGITIM_DEVIR_KILAVUZU.md](docs/EGITIM_DEVIR_KILAVUZU.md).
+Herkes **kendi** Modal hesabını kendi bilgisayarında kullanır (`modal setup`); token paylaşımı, profil değiştirme ya da
+çoklu hesap özelliği yoktur. Model Drive'da durur, dosyalar tarayıcıdan elle yüklenip indirilir (rclone/Drive API yok).
+Kod Drive'a konmaz: herkes aynı git commit'inden çalışır.
+
+```text
+Data_Model/                         # git'e girmez (yalnızca README.md izlenir)
+├── sabit/sabit_v1.tar              # veri kümesi (+ACT türevi, videolar tek kopya); bir kez indirilir, değişmez
+└── iterasyonlar/<hat>/iter_0002_step_010000_ali.tar   # pretrained_model + training_state + train.log + attempts.jsonl + manifest.json
+```
+Manifest: format sürümü, hat, iterasyon, adım, kişi (kısa ad), **parent**, politika, git commit, `configs/training` içeriği,
+sabit sürümü, paket sürümleri, GPU, tur süresi, her dosyanın sha256'sı. Tar'lar sıkıştırmasız ve yalnızca
+`.safetensors/.json/.jsonl/.log` düz dosyalarından oluşur; pickle, mutlak yol, `..`, sembolik/sert bağ reddedilir.
+
+| Komut | İş |
+|---|---|
+| `devir.py durum --hat H` | sabit, son iterasyon, profil (kimliksiz), bu ayki harcama, sıradaki no, azami adım |
+| `devir.py sabit-olustur --surum 1 --veri V [--act-veri A]` | `Data_Model/sabit/sabit_v1.tar` |
+| `devir.py kur` | sabit tar'ı doğrular, kendi Volume'una yükler (özet aynıysa atlar) |
+| `devir.py basla --hat H --config configs/training/act.yaml --kisi K --adim N` | ebeveynsiz ilk tur |
+| `devir.py devam --hat H --kisi K --adim N [--sec dosya]` | son tar'ı doğrular, Volume'a geri yükler, hedef = mevcut adım + N |
+| `devir.py paketle --hat H --kisi K` | tam checkpoint'i indirir, tar'ı üretir ve doğrular |
+| `devir.py temizle --hat H [--onayla]` | paketlenmiş eski checkpoint'leri KENDİ Volume'undan siler (en sonuna dokunmaz) |
+
+**Geri yükleme (restore):** koşu adı = hat adı ve veri adları sabit pakette sabit olduğundan `train_config.json`
+içindeki mutlak yollar (`/runs/runs/<hat>/train`, `/tmp/ds/<veri>`) her hesapta aynıdır; yollar yeniden yazılmaz.
+Checkpoint `/runs/<hat>/train/checkpoints/<adım>/` altına konur, `launch.json` yoksa yazılır, `checkpoints/last`
+bağı gerekmez. Aynı adım Volume'da varsa özet aynıysa atlanır, farklıysa hata verilir.
+
+**`devam` öncesi denetimler (biri başarısızsa eğitim başlamaz):** tar okunur + tüm sha256 tutar + güvenli üyeler; git
+temiz (Data_Model/ hariç) ve `cloud/`, `configs/training/`, `src/mahut_kol/commands/` manifest commit'iyle aynı; Modal
+imajındaki paket sürümleri manifest ile aynı; sabit sürümü ve hat eşleşir; çatallanma yok (`--sec` ile çözülür);
+`--adim` kredi sınırı ve zaman aşımı tavanı içinde.
+
+**Kredi:** `modal billing summary --json` ile bu ayki gerçek harcama (kredi + faturalanan) okunur; 30 USD'den 5 USD
+güvenlik payı düşülür. Politika bazında maliyet `configs/training/*.yaml` → `maliyet` bölümündedir (SmolVLA ≈ 0,20,
+ACT ≈ 0,05 USD/1000 adım + sabit pay). `save_freq`: ACT 5000 (~9 dk), SmolVLA 1500 (~13 dk).
+`timeout_min` `--adim`'den hesaplanır, `--max-timeout-min` (varsayılan 90) hâlâ geçerlidir.

@@ -1,0 +1,31 @@
+# ACT (yapılandırılmış komut, dilsiz kıyas). Komut: 17 boyutlu one-hot `observation.environment_state`.
+# Veri kümesi `scripts/make_act_dataset.py` ile kaynak kümeden TÜRETİLİR (kaynak değişmez).
+policy: act
+dataset: mahut_smoke_v1_r1_act
+repo_id: local/mahut_smoke_v1_act
+episodes: null
+gpu: A10,L4                      # Modal GPU (yedekli liste: kapasite yoksa sıradakini dener); maliyet modeli A10'a göre
+timeout_min: 30
+max_retries: 2
+steps: 300
+batch_size: 16
+save_freq: 5000
+log_freq: 20
+num_workers: 4
+seed: 1000
+video_backend: pyav
+wandb: false
+rename_map: {}
+policy_args:
+  chunk_size: 50
+  n_action_steps: 50
+
+# --- Eğitim devri (cloud/devir.py) ---
+# Kredi korumasında kullanılır (aylık 30 USD ücretsiz kredi, 5 USD güvenlik payı). ACT: ölçülen ≈0,04 USD/1000 adım (A10, batch 16); 592 MB/checkpoint; 5000 adım ≈ 9 dk
+# save_freq: olası kayıp ≲ 15 dk ama Volume gereksiz dolmasın. `sabit_usd` = açılış (imaj, veri kopyası,
+# model yükleme) + CPU/RAM payı; ölçüm: modal billing report, gerçek/ön tahmin ≈ 1,2.
+maliyet:
+  usd_per_1000_steps: 0.05
+  sabit_usd: 0.05
+  steps_per_s: 9.5
+  startup_min: 5
