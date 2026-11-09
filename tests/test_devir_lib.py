@@ -332,3 +332,26 @@ def test_timeout_scales_and_max_timeout_enforced():
 def test_cost_model_requires_keys():
     with pytest.raises(L.DevirHata):
         L.cost_model({"policy": "act"})
+
+
+def test_hardlinked_files_are_written_as_regular_members(tmp_path):
+    import os
+
+    ham, act = tmp_path / "ham", tmp_path / "act"
+    for r in (ham, act):
+        (r / "meta").mkdir(parents=True)
+    (ham / "meta" / "info.json").write_text("{}")
+    (ham / "mahut_episodes.jsonl").write_text("{}\n")
+    os.link(ham / "mahut_episodes.jsonl", act / "mahut_episodes.jsonl")  # eski make_act_dataset'in bıraktığı bağ
+    os.link(ham / "meta" / "info.json", act / "meta" / "info.json")
+    L.build_sabit_tar(tmp_path / "s.tar", 1, ham, act, "a_s1", "a_act_s1")
+    with tarfile.open(tmp_path / "s.tar") as tf:
+        assert all(m.isreg() for m in tf)
+
+
+def test_failed_build_leaves_no_final_file(tmp_path):
+    bad = tmp_path / "ham"
+    (bad / "meta").mkdir(parents=True)                      # info.json yok
+    with pytest.raises(L.DevirHata):
+        L.build_sabit_tar(tmp_path / "s.tar", 1, bad, None, "a_s1", None)
+    assert not (tmp_path / "s.tar").exists()

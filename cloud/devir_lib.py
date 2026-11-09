@@ -234,7 +234,7 @@ def extract_tar(tar_path: Path, dest: Path, kind: str, skip=("manifest.json",)) 
     return out
 
 
-def _write_tar(out_path: Path, files: dict[str, Path], manifest: dict) -> None:
+def _write_tar(out_path: Path, files: dict[str, Path], manifest: dict, kind: str) -> None:
     """files: {tar_içi_ad: yerel_yol}. Dosyalar tek tek eklenir (klasör girdisi yok), sıkıştırmasız."""
     out_path = Path(out_path)
     if out_path.exists():
@@ -252,13 +252,15 @@ def _write_tar(out_path: Path, files: dict[str, Path], manifest: dict) -> None:
 
             tf.addfile(info, io.BytesIO(mj))
             for arc, p in sorted(files.items()):
+                tf.inodes = {}  # aynı inode'u paylaşan (sert bağlı) dosyalar sert bağ OLARAK değil, düz dosya yazılsın
                 ti = tf.gettarinfo(str(p), arcname=arc)
                 ti.uid = ti.gid = 0
                 ti.uname = ti.gname = ""
                 ti.mode = 0o644
                 with open(p, "rb") as fh:
                     tf.addfile(ti, fh)
-        os.replace(tmp, out_path)  # tamamlanana kadar .part: yarım dosya tar adıyla görünmez
+        verify_tar(tmp, kind)  # yazılanı doğrula; geçerliyse son adla görünür (yarım/bozuk dosya tar adıyla durmaz)
+        os.replace(tmp, out_path)
     except BaseException:
         if tmp.exists():
             tmp.unlink()
@@ -281,8 +283,7 @@ def build_iter_tar(out_path: Path, ckpt_dir: Path, extra_files: dict[str, Path],
         "olusturma": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "dosyalar": {arc: sha256_file(p) for arc, p in sorted(files.items())},
     }
-    _write_tar(Path(out_path), files, manifest)
-    verify_tar(Path(out_path), "iter")  # yazdıktan sonra doğrula
+    _write_tar(Path(out_path), files, manifest, "iter")
     return manifest
 
 
@@ -326,8 +327,7 @@ def build_sabit_tar(out_path: Path, surum: int, ham: Path, act: Path | None, ad_
         "olusturma": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "dosyalar": {k: sha[k] for k in sorted(files)},
     }
-    _write_tar(Path(out_path), files, manifest)
-    verify_tar(Path(out_path), "sabit")
+    _write_tar(Path(out_path), files, manifest, "sabit")
     return manifest
 
 
