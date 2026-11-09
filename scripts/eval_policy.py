@@ -15,7 +15,7 @@ observation.state = 7 boyutlu qpos (5 kol + 2 parmak), task = İngilizce talimat
      yerleştirme" (yanlış dil izleme) oranı.
 
 Örnekler:
-    python3 scripts/eval_policy.py --checkpoint ~/vla_runs/x/checkpoints/last/pretrained_model
+    python3 scripts/eval_policy.py --checkpoint ~/vla_runs/<koşu>/checkpoints/last/pretrained_model
     python3 scripts/eval_policy.py --checkpoint latest --episodes 40 --heldout-episodes 30 --language-scenes 10
     # Boru hattı duman testi (model yok): betik kendi oracle'ı ile çalışır
     python3 scripts/eval_policy.py --policy scripted --episodes 3 --heldout-episodes 2 --language-scenes 1
@@ -51,7 +51,14 @@ from mahut_kol.envs.multi_shape_task import (  # noqa: E402
 from mahut_kol.recording import IMAGE_KEYS  # noqa: E402
 from mahut_kol.recording.session import make_env  # noqa: E402
 
-DEFAULT_CKPT = "~/vla_runs/smolvla_mahut_kol/checkpoints/last/pretrained_model"  # eski; `latest` için bkz. --checkpoint
+
+
+def latest_checkpoint() -> str:
+    """`--checkpoint latest`: ~/vla_runs/*/checkpoints/last/pretrained_model içinde en yeni olan."""
+    cands = list(Path("~/vla_runs").expanduser().glob("*/checkpoints/last/pretrained_model"))
+    if not cands:
+        raise FileNotFoundError("~/vla_runs altında checkpoint yok (python cloud/mahut_cloud.py download ...)")
+    return str(max(cands, key=lambda p: p.resolve().stat().st_mtime))
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +249,7 @@ def main(argv=None):
     if args.policy == "lerobot":
         if not args.checkpoint:
             ap.error("--checkpoint gerekli (ya da duman testi için --policy scripted)")
-        ckpt = os.path.realpath(os.path.expanduser(DEFAULT_CKPT if args.checkpoint == "latest" else args.checkpoint))
+        ckpt = os.path.realpath(os.path.expanduser(latest_checkpoint() if args.checkpoint == "latest" else args.checkpoint))
         rename = dict(r.split("=", 1) for r in args.rename)
         policy = LeRobotPolicy(ckpt, args.device, rename)
         tag = os.path.basename(os.path.dirname(ckpt))

@@ -245,3 +245,43 @@ Kaynak görev tanımı: [docs/VLA_VERI_TOPLAMA_PROMPT.md](docs/VLA_VERI_TOPLAMA_
 * **Aşama 7 – Değerlendirme ([eval_policy.py](scripts/eval_policy.py)):** 7 boyutlu state (`qpos[:, :6]` hatası düzeltildi), iki kamera, komut JSON'undan reset; nesne/yön ve held-out başarısı, aynı sahne + farklı komutla dil duyarlılığı. `--policy scripted` duman testi.
 * **Testler:** 139 test geçiyor (yeni: `test_vla_env_rules`, `test_commands`, `test_phone_teleop`, `test_recording`, `test_scripted_pipeline`).
 * **Notlar:** `numpy 2.2.6` lerobot venv'inde sorun çıkarmadı. Yerelde torchcodec FFmpeg kütüphanelerini bulamıyor; video okumada `pyav` kullanılıyor. `scripts/train_smolvla.sh` hâlâ eski PickCube veri kümesine bağlı (eğitim bu görevin kapsamı dışında).
+
+## 16. ☁️ Modal Eğitim Hattı ve Uçtan Uca Kısa Deneme (2026-11-09)
+Kaynak görev: [docs/VLA_MODAL_EGITIM_PROMPT.md](docs/VLA_MODAL_EGITIM_PROMPT.md). Kullanım: [PROJE_REHBERI.md](PROJE_REHBERI.md) §9. Amaç iyi model değil, **verinin Modal'da eğitilebildiğinin ve çıkan checkpoint'in yerelde kapalı çevrim çalıştığının kanıtı**.
+
+* **Deneme veri kümesi:** `~/vla_data/mahut_smoke_v1` (repo `local/mahut_smoke_v1`), 250 scripted bölüm, 39 895 kare, 269 denemede %92,9 başarı, ~8–9,7 sn/bölüm (yaklaşık 36 dk). `validate_dataset.py` geçti: tüm kapsama hücreleri dolu (manipüle nesne × yön en az 4), held-out sızıntısı yok, 20 bölümün videosu okundu. Hatalar: IK erişilemez 14, yerleştirme ıskası 4, kavrama 1.
+* **Teleop / scripted uzunluk farkı:** scripted 154–181 adım (ort. 159,6 = 8,0 sn, neredeyse sabit); teleop (`mahut_multishape`, şu an 3 bölüm) 294–424 adım (ort. 376 = 18,8 sn). Teleop ~2,4× uzun ve değişken (duraklama, düzeltme). Davranış değiştirilmedi.
+* **Hat ([cloud/](cloud)):** Modal imajı yerel sürümlerle aynı sabitlenmiş paketlerle (torch 2.6.0, lerobot 0.4.4, transformers 4.57.6, numpy 2.2.6, av 15.1.0 …; Python 3.10.17 vs yerel 3.10.12; ffmpeg 5.1.9; Modal imajında SAPIEN/ManiSkill yok). Volume'lar `mahut-datasets`, `mahut-runs` (HF önbelleği dahil). Yükleme/indirme/başlatma [mahut_cloud.py](cloud/mahut_cloud.py); koşu ve devam mantığı [train_entry.py](cloud/train_entry.py); ayarlar [configs/training/](configs/training). Var olan veri/koşu adı hata verir, silme yok.
+* **Politikalar:** SmolVLA (`lerobot/smolvla_base`, `front→camera1`, `wrist→camera2`, `empty_cameras=1`); ACT (dilsiz, 17 boyutlu one-hot `observation.environment_state`). ACT için **türev veri kümesi** seçildi ([make_act_dataset.py](scripts/make_act_dataset.py)): lerobot 0.4.4 ENV girdisini yalnızca `observation.environment_state` sütunundan alır; sarmalayıcı `make_dataset/__getitem__` monkeypatch'i gerektirir (sürüme kırılgan), türev küme ise standart `lerobot-train` ile yamasız çalışır. Kaynak değişmez, videolar sabit bağlantıyla paylaşılır.
+* **Doğrulanan riskler:** (1) `command.slots` (int64, `observation.` öneksiz) `dataset_to_policy_features` tarafından atlanıyor; batch'te kalıyor ama stats/collate/politika hatası vermedi (iki politikada da). (2) smolvla_base yapılandırması state shape (6,) ve 3 kamera taşıyor; eğitimde kaydedilen config'te state (6,) kalıyor, gerçek veri 7 boyutlu (pad edildiği için sorunsuz çalıştı ve eval hatasız). (3) Video arka ucu `pyav` açıkça seçili. (4) Modal Volume'da `checkpoints/last` sembolik bağı sorunsuz; yine de devam mantığı sayısal checkpoint klasörlerini tarar.
+* **Kesilme/devam:** `Retries` + sabit `launch_id`. 1 dk timeout'lu ACT koşusunda gerçek zaman aşımı iki kez yaşandı, koşu her seferinde son checkpoint'ten (500, 800) devam edip 800 adımı tamamladı.
+
+### Ölçümler (batch 16; maliyet = Modal liste fiyatı × süre, faturayla doğrulanmadı)
+| Koşu | GPU | Adım | Süre (konteyner) | Adım/sn | Tahmini maliyet | Loss |
+|---|---|---|---|---|---|---|
+| act_duman_01 | L4 | 300 | 68 sn | 9,8 | $0,015 | 25,4 → 2,68 |
+| act_duman_01 devam | A10 | 300→500 | 58 sn | 9,4 | $0,018 | 2,57 → 2,17 (adım sayacı 320'den devam) |
+| smolvla_duman_01 | A10 | 300 | 204 sn | 1,88 | $0,063 | 0,224 → 0,056 |
+| smolvla_duman_01 devam | A10 | 300→400 | 87 sn | 1,92 | ~$0,027 | 0,051 → 0,054 |
+| act_timeout_01 (1 dk timeout, 3 deneme) | A10 | 800 | ~140 sn | 9,3 | ~$0,04 | – |
+| act_ezber_01 (10 bölüm) | A10 | 3000 | 369 sn | 9,9 | $0,114 | 25 → 0,373 |
+| smolvla_ezber_01 (10 bölüm) | A10 | 2000 | 1135 sn | 1,90 | $0,351 | 0,357 → 0,008 |
+
+Toplam tahmini harcama ≈ **$0,63** (5 USD sınırının çok altında; imaj derleme ve kuyrukta bekleme süresi hesaba katılmadı).
+Not: L4 kapasitesi bir denemede 13 dk bulunamadı (ücret işlemez); iş durdurulup yedekli `"L4,A10"` listesiyle yeniden başlatıldı, sonraki tüm koşular A10'da çalıştı.
+
+**Ezber (açık çevrim, ilk 10 bölüm, 10 adımlık eylem parçası, MAE rad):** ACT ezber 0,023, SmolVLA ezber 0,019; ortalama-eylem tabanı 0,187, sıfır eylem 0,442. Duman checkpoint'leri: ACT (500 adım) 0,093, SmolVLA (300 adım) 0,056. Yani loss düşüşü veri/normalizasyon/eylem eşlemesinde hata olmadığını gösteriyor (model tabanın ~%10'una iniyor).
+
+### Yerel kapalı çevrim (RTX 4060 8 GB)
+Dört checkpoint (ACT/SmolVLA × duman/ezber) `eval_policy.py` ile 5 eğitim komutu bölümü (duman olanlarda + 1 held-out + 1 dil sahnesi) hatasız tamamlandı; hepsi **başarı 0/5** (beklenen: yeni sahneler, çok kısa eğitim). Eylemler sonlu, eklem aralıklarında (ör. joint1 0,04–1,79; parmak 0–0,062). Kamera adı/boyut/normalizasyon ve komut girdisi hatası yok.
+* Bellek: SmolVLA çıkarım torch tepe 925 MiB (ayrılan 958), tüm GPU (SAPIEN + masaüstü dahil, boşta 577) tepe 1860 MiB; ACT 227 MiB, toplam 1160 MiB.
+* Hız: simülasyon dahil döngü SmolVLA ~125 adım/sn, ACT ~250 adım/sn (hedef 20 Hz); eylem parçası hesaplanan adımda tek seferlik sıçrama SmolVLA ≈ 370 ms, ACT ≈ 170–230 ms (50 adımda bir).
+* `eval_policy.py` düzeltmeleri: ACT için one-hot girdi (eğitimle aynı `commands/onehot.py`), SmolVLA kamera eşlemesi checkpoint'teki ön işlemciden (çift eşleme yok), `policy_stats` (eylem aralığı, gecikme, GPU belleği), `--checkpoint latest` artık `~/vla_runs` altındaki en yenisi.
+
+### Fizibilite notları (doğrulanmadı = belirtildi)
+* **pi0 ailesi yerelde:** Hugging Face model kartları pi0_base ve pi05_base için "4B params", F32 gösteriyor (bellek gereksinimi yazmıyor). bf16'da yalnızca ağırlıklar ≈ 8 GB: 8 GB'lık 4060'a sığmaz (SAPIEN ve aktivasyonlar ayrı). Yerel çıkarım için nicemleme ya da daha büyük GPU gerekir; denenmedi.
+* **Modal'da SAPIEN render:** Modal dokümanları yalnızca CUDA/hesaplama destekliyor; Vulkan/OpenGL/EGL (başsız render) için bir ifade yok. **Test edilmedi**; sim değerlendirmesi Modal'da kurulmadı (yerel yol engelli değil).
+* Yerel eğitim hatları (A10) SmolVLA ~1,9 adım/sn: smolvla_base için 2000 bölümlük tam eğitim tahmini aşağıdaki bitiş raporunda.
+
+### Testler ve temizlik
+`pytest tests/` → 164 geçti (yeni: `test_onehot`, `test_cloud_train_entry`, `test_make_act_dataset`). Eski, `rm -rf "$OUT"` içeren `scripts/train_smolvla.sh` kaldırıldı; `scripts/collect_demos.py` duruyor. Gerçek teleop verisi (`~/vla_data/mahut_multishape`) yalnızca okundu (ACT türev denemesi ve bir yerel SmolVLA hata ayıklama koşusu için), değiştirilmedi ve Modal'a yüklenmedi.

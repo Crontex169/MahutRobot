@@ -48,7 +48,7 @@ Projede kullanılan robot kolu, 3D baskı parçalar, yüksek torklu **Feetech FT
        ↓ LeRobotDataset v3 (lerobot 0.4.4) + mahut_episodes.jsonl
 [Doğrulama + kapsama raporu (scripts/validate_dataset.py)]
        ↓
-[LeRobot ile Politika Eğitimi (scripts/train_smolvla.sh; ileride Modal)]
+[Modal'da politika eğitimi (cloud/mahut_cloud.py; SmolVLA / ACT)]
        ↓ (Model Checkpoint)
 [Simülasyonda Kapalı Çevrim Test (scripts/eval_policy.py)]
 ```
@@ -97,7 +97,8 @@ MahutKol/
 │   ├── compute_workspace.py  # Erişilebilir çalışma alanını FK/IK ile örnekler
 │   ├── render_task_cameras.py# front/wrist kameralarını render edip yön tanımlarını doğrular
 │   ├── make_heldout_split.py # Held-out komut listesini (bir kez) üretir
-│   ├── train_smolvla.sh      # LeRobot SmolVLA eğitim başlatıcı
+│   ├── make_act_dataset.py   # ACT için türev veri kümesi (5 slot -> 17 boyutlu one-hot)
+│   ├── open_loop_check.py    # Açık çevrim (ezber) hata ölçümü
 │   ├── eval_policy.py        # Çok şekilli görevde kapalı çevrim değerlendirme (dil testi dahil)
 │   ├── check_urdf.py         # URDF doğrulama aracı
 │   └── test_ps4.py           # (Teleoperasyonlar/ yönlendiricisi)
@@ -162,9 +163,10 @@ python scripts/check_urdf.py
 python scripts/collect_demos.py 50
 ```
 
-### 6. SmolVLA / LeRobot Model Eğitimi:
+### 6. Modal'da SmolVLA / ACT Eğitimi:
+Ayrıntı: bölüm 9.
 ```bash
-bash scripts/train_smolvla.sh 5000 8
+~/.venvs/lerobot/bin/python cloud/mahut_cloud.py train --config configs/training/smolvla.yaml --run <benzersiz_ad>
 ```
 
 ### 7. Eğitilen Modeli Simülasyonda Değerlendirme (çok şekilli görev):
@@ -173,9 +175,6 @@ bash scripts/train_smolvla.sh 5000 8
 # model olmadan boru hattı duman testi:
 ~/.venvs/lerobot/bin/python scripts/eval_policy.py --policy scripted --episodes 3 --heldout-episodes 2 --language-scenes 1
 ```
-> Not: `scripts/train_smolvla.sh` hâlâ eski PickCube veri kümesine (`~/vla_data/pick_cube_arm`)
-> göre yazılı; yeni veri kümesiyle eğitim (`~/vla_data/mahut_multishape`, kameralar
-> `observation.images.front` + `observation.images.wrist`) bir sonraki aşamanın işidir.
 
 ---
 
@@ -285,3 +284,62 @@ eğik yapılır. Nesne/hedef alanı x ∈ [0.10, 0.22], y ∈ [−0.16, 0.12] m 
 FK (SAPIEN TCP pozuyla birebir), eğim kısıtlı DLS IK; telefon teleopu ve scripted demolar aynı
 çözücüyü kullanır.
 
+---
+
+## 9. ☁️ Modal'da VLA Eğitimi (SmolVLA ve ACT)
+
+Kod: `cloud/` (`modal_app.py` imaj + uzak fonksiyonlar, `train_entry.py` koşu/devam mantığı,
+`mahut_cloud.py` komut satırı). Koşu ayarları tek yerde: `configs/training/smolvla.yaml`, `act.yaml`
+(politika, adım, batch, kaydetme sıklığı, GPU, timeout, veri adı). Wandb varsayılan kapalı.
+
+### Kurulum (bir kez)
+`~/.venvs/lerobot` içinde `modal` kurulu (1.6.3). Kimlik doğrulamayı **siz** yapın (anahtar hiçbir dosyaya yazılmaz):
+```bash
+~/.venvs/lerobot/bin/modal setup
+~/.venvs/lerobot/bin/python cloud/mahut_cloud.py check     # profil + Volume'lar
+```
+Volume'lar: `mahut-datasets` (sürümlü veri kümeleri) ve `mahut-runs` (`runs/<koşu>/`, HF model önbelleği `hf_cache/`).
+
+### Veri yükleme (sürümlü; var olan ad ASLA ezilmez)
+```bash
+# SmolVLA: ham veri kümesi
+python cloud/mahut_cloud.py upload --src ~/vla_data/mahut_smoke_v1 --name mahut_smoke_v1_r1
+# ACT (dilsiz kıyas): önce türev veri kümesi, sonra yükle
+python scripts/make_act_dataset.py --src ~/vla_data/mahut_smoke_v1 --dst ~/vla_data/mahut_smoke_v1_act
+python cloud/mahut_cloud.py upload --src ~/vla_data/mahut_smoke_v1_act --name mahut_smoke_v1_r1_act
+```
+Veri güncellenirse yeni ad kullanın (`..._r2`). Yalnızca `meta/`, `data/`, `videos/` yüklenir.
+**Gerçek teleop verisi (`~/vla_data/mahut_multishape`) bu hat denemelerinde yüklenmedi**; yüklemeden önce karar sizin.
+
+### Eğitim, devam, indirme
+```bash
+python cloud/mahut_cloud.py train --config configs/training/smolvla.yaml --run smolvla_x_01 --steps 300   # YENİ koşu
+python cloud/mahut_cloud.py train --config configs/training/smolvla.yaml --run smolvla_x_01 --steps 600 --resume  # kaldığı yerden
+python cloud/mahut_cloud.py ls [--run smolvla_x_01]
+python cloud/mahut_cloud.py download --run smolvla_x_01              # ~/vla_runs/smolvla_x_01/checkpoints/last/pretrained_model
+```
+* Koşu adı benzersizdir: var olan koşu `--resume` olmadan HATA verir; silme/ezme yoktur.
+* `--detach` ile başlar (terminal kapansa da sürer). Her fonksiyonda `timeout_min` (varsayılan 30) ve en fazla 30 dk sınırı
+  (`--max-timeout-min` ile bilerek yükseltilir). `max_retries: 2`: zaman aşımı/preemption sonrası Modal aynı girdiyle
+  yeniden başlatır, `train_entry.py` son checkpoint'ten sürdürür (gerçek zaman aşımıyla doğrulandı).
+* Checkpoint `save_freq` adımda bir yazılır, Volume'a 45 sn'de bir ve çıkışta `commit` edilir.
+* GPU: `--gpu L4`; kapasite yoksa yedekli liste `--gpu "L4,A10"` (deneme sırasında L4 kapasitesi 13 dk beklendi).
+* Video okuma: `pyav` açıkça seçili (`video_backend: pyav`).
+* SmolVLA: `front`→`camera1`, `wrist`→`camera2`, `empty_cameras: 1` (smolvla_base 3 kamera ile eğitildi).
+* ACT: komut 5 slottan 17 boyutlu one-hot (`observation.environment_state`); türev veri kümesi gerekir.
+
+### Yerel değerlendirme
+```bash
+python scripts/eval_policy.py --checkpoint ~/vla_runs/<koşu>/checkpoints/last/pretrained_model --episodes 5 --heldout-episodes 1 --language-scenes 1
+python scripts/open_loop_check.py --checkpoint ... --root ~/vla_data/mahut_smoke_v1[_act] --episodes 0-9   # ezber hatası
+```
+Rapor `policy_stats` içinde eylem aralığı, çıkarım gecikmesi ve GPU bellek tepe noktasını verir.
+
+### Imaj / yerel venv farkları
+Aynı: Python 3.10 (Modal 3.10.17, yerel 3.10.12), torch 2.6.0, torchvision 0.21.0, lerobot 0.4.4, transformers 4.57.6,
+numpy 2.2.6, av 15.1.0, datasets 4.8.5, diffusers 0.35.2, accelerate 1.15.0, safetensors 0.8.0, huggingface-hub 0.35.3.
+Farklı: Modal imajında ManiSkill/SAPIEN ve `mahut_kol` YOK (yalnızca eğitim); yerel venv sistem paketlerini de görür;
+ffmpeg Debian 5.1.9 (apt); yalnızca `opencv-python-headless`; torchcodec kurulu ama kullanılmıyor.
+
+### Ölçüm tablosu (kısa denemeler, 250 scripted bölüm, batch 16)
+Ayrıntılar `YAPILANLAR.md` §16.

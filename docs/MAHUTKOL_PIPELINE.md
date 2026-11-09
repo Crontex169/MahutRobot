@@ -36,7 +36,7 @@ Bu doküman, **ManiSkill 3** simülasyon ortamı ile **Hugging Face LeRobot** e�
 └────────────┬────────────┘
              ▼
 ┌─────────────────────────┐
-│ Model Eğitimi           │ ──▶ scripts/train_smolvla.sh (LeRobot; ileride Modal)
+│ Model Eğitimi           │ ──▶ cloud/mahut_cloud.py (LeRobot; Modal, bkz. PROJE_REHBERI §9)
 └────────────┬────────────┘
              ▼
 ┌─────────────────────────┐

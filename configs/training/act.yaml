@@ -1,7 +1,7 @@
 # ACT (yapılandırılmış komut, dilsiz kıyas). Komut: 17 boyutlu one-hot `observation.environment_state`.
 # Veri kümesi `scripts/make_act_dataset.py` ile kaynak kümeden TÜRETİLİR (kaynak değişmez).
 policy: act
-dataset: mahut_smoke_v1_act
+dataset: mahut_smoke_v1_r1_act
 repo_id: local/mahut_smoke_v1_act
 episodes: null
 gpu: L4
