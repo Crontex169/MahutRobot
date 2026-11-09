@@ -12,7 +12,9 @@ Güvenlik: bu dosyadaki hiçbir fonksiyon Volume'da dosya silmez/ezmez. Koşu kl
 (`train_entry.prepare_run`) yalnızca aynı launch_id (otomatik yeniden başlatma) ya da açık
 `resume` ile sürdürülür, aksi halde hata verir.
 
-Modal fiyatları (modal.com/pricing, 2026-11-09; saniye başına USD) maliyet tahmini içindir.
+Modal fiyatları (modal.com/pricing, 2026-11-09; saniye başına USD) yalnızca ÖN tahmin içindir; gerçek
+harcama için `modal billing report --for today --show-resources` / `modal billing summary` kullanın
+(tahmin açılış/kuyruk süresini, başarısız denemeleri ve gerçek CPU/RAM'i saymaz).
 """
 
 from __future__ import annotations
@@ -145,6 +147,10 @@ def train(cfg: dict, run_name: str, launch_id: str, resume: bool) -> dict:
     Path("/runs/runs").mkdir(parents=True, exist_ok=True)
     try:
         rc = train_entry.main(argv)
+    except (FileNotFoundError, FileExistsError, ValueError, KeyError) as e:
+        # Kalıcı hata (yanlış ayar, var olan koşu adı, eksik veri...): yeniden denemek ücretsiz kredi yakar.
+        print(f"KALICI HATA (yeniden denenmeyecek): {e!r}", flush=True)
+        return {"status": "failed_permanent", "run": run_name, "reason": repr(e), "loss_trace": []}
     finally:
         stop.set()
         runs_vol.commit()
@@ -153,15 +159,19 @@ def train(cfg: dict, run_name: str, launch_id: str, resume: bool) -> dict:
     if not att_file.exists():
         raise RuntimeError(f"eğitim sonuç yazmadan bitti (rc={rc})")
     last = json.loads(att_file.read_text().strip().splitlines()[-1])
+    if rc != 0 and not last.get("last_logged_step"):
+        # Hiç adım atılmadan çıktı (config/veri/kütüphane hatası): kalıcı sayılır, retry yok.
+        print(f"KALICI HATA: eğitim ilk adımdan önce çıktı (rc={rc}); yeniden denenmeyecek.", flush=True)
+        return {"status": "failed_permanent", "run": run_name, "reason": f"rc={rc}, adım yok", "loss_trace": []}
     summary = {
-        "run": run_name, "returncode": rc, "gpu_modal": GPU, "gpu_device": gpu_name,
+        "status": "ok", "run": run_name, "returncode": rc, "gpu_modal": GPU, "gpu_device": gpu_name,
         "wall_s": round(wall, 1), "train_wall_s": last["wall_s"],
         "steps_per_s": last.get("steps_per_s_from_log"), "resumed": last["resumed"],
-        "last_step": last["last_logged_step"], "est_cost_usd": round(cost_usd(_gpu_key(gpu_name), wall), 3),
+        "last_step": last["last_logged_step"], "on_tahmin_usd": round(cost_usd(_gpu_key(gpu_name), wall), 3),
         "loss_trace": last["losses"],
     }
     print("ÖZET", json.dumps({k: v for k, v in summary.items() if k != "loss_trace"}), flush=True)
-    if rc != 0:
+    if rc != 0:  # adım atıldıktan sonraki hata (OOM, kesinti...): Modal yeniden dener, checkpoint'ten sürer
         raise RuntimeError(f"eğitim hata kodu {rc}")
     return summary
 
@@ -170,6 +180,9 @@ def train(cfg: dict, run_name: str, launch_id: str, resume: bool) -> dict:
 def train_cli(config_json: str, run: str, launch_id: str, resume: bool = False):
     """`modal run --detach cloud/modal_app.py::train_cli --config-json ... --run ...`"""
     s = train.remote(json.loads(config_json), run, launch_id, resume)
+    if s.get("status") != "ok":
+        print("BAŞARISIZ", json.dumps(s))
+        raise SystemExit(1)
     print("TAMAM", json.dumps({k: v for k, v in s.items() if k != "loss_trace"}))
     print("kayıp izi:", s["loss_trace"][:3], "...", s["loss_trace"][-3:])
 

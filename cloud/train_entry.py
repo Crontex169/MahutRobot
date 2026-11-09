@@ -50,19 +50,43 @@ def load_config(path: str) -> dict:
     return yaml.safe_load(text)
 
 
+REQUIRED_STATE_FILES = ("training_step.json", "rng_state.safetensors", "optimizer_state.safetensors",
+                        "optimizer_param_groups.json")
+
+
+def checkpoint_is_complete(ck: Path) -> bool:
+    """Checkpoint yazılırken kesilmişse (yarım) geçersiz say.
+
+    Gerekli: pretrained_model/{model.safetensors, train_config.json} ve training_state/ içinde
+    training_step.json, rng_state.safetensors, optimizer_state.safetensors, optimizer_param_groups.json;
+    ayrıca eğitimde zamanlayıcı kullanılıyorsa (train_config.json'da `scheduler` boş değil)
+    scheduler_state.json. (ACT zamanlayıcı kullanmaz, bu dosya onda yoktur.) Dosyalar boş olamaz.
+    """
+    pm, st = ck / "pretrained_model", ck / "training_state"
+    cfg = pm / "train_config.json"
+    needed = [pm / "model.safetensors", cfg] + [st / f for f in REQUIRED_STATE_FILES]
+    try:
+        if not all(p.is_file() and p.stat().st_size > 0 for p in needed):
+            return False
+        if json.loads(cfg.read_text()).get("scheduler"):
+            sched = st / "scheduler_state.json"
+            return sched.is_file() and sched.stat().st_size > 0
+        return True
+    except (OSError, ValueError):
+        return False
+
+
 def last_checkpoint_config(run_dir: Path) -> Path | None:
-    """En yeni deneme klasörlerindeki en büyük adımlı checkpoint'in train_config.json'u.
+    """Tüm denemelerdeki TAM checkpoint'lerden en büyük adımlısının train_config.json'u.
 
     `checkpoints/last` sembolik bağına güvenilmez (Volume'da sembolik bağ garanti değil);
-    sayısal adlı checkpoint klasörleri taranır.
+    sayısal adlı checkpoint klasörleri taranır, yarım olanlar atlanıp bir öncekine düşülür.
     """
     best = None  # (adım, deneme mtime, yol)
     for d in run_dir.glob("train*"):
         for ck in (d / "checkpoints").glob("[0-9]*"):
-            cfg = ck / "pretrained_model" / "train_config.json"
-            st = ck / "training_state"
-            if cfg.exists() and st.exists():
-                key = (int(ck.name), d.stat().st_mtime, cfg)
+            if checkpoint_is_complete(ck):
+                key = (int(ck.name), d.stat().st_mtime, ck / "pretrained_model" / "train_config.json")
                 best = max(best, key) if best else key
     return best[2] if best else None
 

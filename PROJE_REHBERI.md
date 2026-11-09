@@ -317,6 +317,8 @@ python cloud/mahut_cloud.py train --config configs/training/smolvla.yaml --run s
 python cloud/mahut_cloud.py train --config configs/training/smolvla.yaml --run smolvla_x_01 --steps 600 --resume  # kaldığı yerden
 python cloud/mahut_cloud.py ls [--run smolvla_x_01]
 python cloud/mahut_cloud.py download --run smolvla_x_01              # ~/vla_runs/smolvla_x_01/checkpoints/last/pretrained_model
+python cloud/mahut_cloud.py download --run smolvla_x_01 --with-training-state   # devam/taşıma için optimizer durumu dahil
+modal billing report --for today --show-resources                    # GERÇEK harcama (on_tahmin_usd yalnızca ön tahmin)
 ```
 * Koşu adı benzersizdir: var olan koşu `--resume` olmadan HATA verir; silme/ezme yoktur.
 * `--detach` ile başlar (terminal kapansa da sürer). Her fonksiyonda `timeout_min` (varsayılan 30) ve en fazla 30 dk sınırı

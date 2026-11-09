@@ -49,3 +49,17 @@ def test_existing_destination_is_never_overwritten(tmp_path):
     dst.mkdir()
     with pytest.raises(FileExistsError):
         mad.build(src, dst)
+
+
+def test_only_videos_are_hardlinked_meta_and_sidecars_are_copied(tmp_path):
+    import os
+
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    _make_src(src)
+    (src / "meta" / "tasks.parquet").write_bytes(b"t")
+    (src / "mahut_episodes.jsonl").write_text("{}\n")
+    mad.build(src, dst)
+    assert os.stat(src / "videos" / "cam" / "a.mp4").st_nlink == 2          # video paylaşılır
+    assert os.stat(src / "meta" / "tasks.parquet").st_nlink == 1            # meta kopya
+    assert os.stat(src / "mahut_episodes.jsonl").st_nlink == 1              # sidecar kopya
+    assert (dst / "mahut_episodes.jsonl").read_text() == "{}\n"

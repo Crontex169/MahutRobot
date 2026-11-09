@@ -9,8 +9,9 @@ Neden türev veri kümesi (eğitim sarmalayıcısı / lerobot yaması yerine):
   * lerobot-train'i sarmalamak `make_dataset`/`LeRobotDataset.__getitem__` üzerinde monkeypatch
     gerektirirdi (lerobot sürümüne kırılgan). Türev küme ise standart `lerobot-train` ile
     değişiklik OLMADAN eğitilir; sürümlü ad kaynağın hangi anında türetildiğini belgeler.
-  * Maliyet: yalnızca veri parquet dosyaları (7+7+5+17 sayı/kare) yeniden yazılır; videolar
-    sabit bağlantıyla (aynı disk) paylaşılır, değilse kopyalanır. Kaynak asla değiştirilmez.
+  * Maliyet: yalnızca veri parquet dosyaları (7+7+5+17 sayı/kare) yeniden yazılır; yalnızca videos/
+    sabit bağlantıyla (aynı disk) paylaşılır, değilse kopyalanır; meta ve sidecar dosyaları KOPYALANIR.
+    Kaynak asla değiştirilmez.
 
 Hedef kök zaten varsa HATA verir (üzerine yazmaz, silmez).
 
@@ -42,14 +43,18 @@ SLOTS_KEY = "command.slots"
 QUANTILES = {"q01": 0.01, "q10": 0.10, "q50": 0.50, "q90": 0.90, "q99": 0.99}
 
 
-def _link_or_copy(src: Path, dst: Path) -> str:
+def _link_or_copy(src: Path, dst: Path, allow_link: bool) -> str:
+    """Yalnızca değişmeyen büyük video dosyaları sabit bağlanır (`allow_link`); meta ve sidecar'lar
+    KOPYALANIR ki kaynak ile türev aynı inode'u paylaşıp birbirini etkilemesin."""
     dst.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        os.link(src, dst)
-        return "link"
-    except OSError:
-        shutil.copy2(src, dst)
-        return "copy"
+    if allow_link:
+        try:
+            os.link(src, dst)
+            return "link"
+        except OSError:
+            pass
+    shutil.copy2(src, dst)
+    return "copy"
 
 
 def _env_stats(x: np.ndarray) -> dict:
@@ -82,7 +87,7 @@ def build(src: Path, dst: Path) -> dict:
         if p.is_dir() or rel.parts[0] in ("data", "images") or rel == Path("meta/info.json") \
                 or rel == Path("meta/stats.json"):
             continue
-        kind = _link_or_copy(p, dst / rel)
+        kind = _link_or_copy(p, dst / rel, allow_link=rel.parts[0] == "videos")
         linked += kind == "link"
         copied += kind == "copy"
 
