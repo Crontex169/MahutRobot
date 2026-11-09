@@ -255,8 +255,9 @@ dene, **Q** çık. Held-out komutlar kayıtta atlanır (`--include-heldout` ile 
    "Görev" kutusunda İngilizce talimat yazmalı.
 6. **Bilgisayar ekranına (robota) bakarken** "AR Teleop Başlat"a dokunun (eksenler bu andaki
    yönelime sabitlenir).
-7. **DEBRİYAJ** düğmesini basılı tutup telefonu hareket ettirin. Varsayılan kontrol **kıskaç
-   (wrist) kamerasına göredir**: telefonu sağa götürmek → wrist görüntüsünde sağa, ileri itmek →
+7. **DEBRİYAJ** düğmesini basılı tutup telefonu hareket ettirin. Pencerede kontrolün göre olduğu
+   görüntü yeşil çerçeve ve etiketle işaretlidir; öteki görüntüde yönler terstir. Varsayılan
+   kontrol **kıskaç (wrist) kamerasına göredir**: telefonu sağa götürmek → wrist görüntüsünde sağa, ileri itmek →
    görüntünün üstüne doğru, yukarı kaldırmak → yukarı (çerçeve her debriyaj basışında kıskacın o
    anki yönüne göre sabitlenir). Tek basışta uzun yana hareket ederseniz kol tabanda döner ve
    yönler kayar; kayma 30°'yi geçince pencerenin durum satırında **"YÖN KAYDI: debriyajı bırakıp

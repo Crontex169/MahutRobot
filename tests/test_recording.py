@@ -135,8 +135,11 @@ class TestGoalOverlay(unittest.TestCase):
         pts = goal_region_world(env)
         self.assertAlmostEqual(float(pts[-1, 2]), 0.001, places=3)
         before = {c: obs["sensor_data"][c]["rgb"].clone() for c in ("front", "wrist")}
-        ui = PygameUI(scale=1)
+        ui = PygameUI(scale=1, control_camera="wrist")
         ui.update(obs, "test", False, overlay=ov)
+        # Yeşil çerçeve yalnızca kontrolün göre olduğu (sağdaki wrist) panelde
+        self.assertEqual(tuple(ui.screen.get_at((224 + 1, 200)))[:3], (60, 220, 110))
+        self.assertNotEqual(tuple(ui.screen.get_at((1, 200)))[:3], (60, 220, 110))
         ui.close()
         for c in before:
             self.assertTrue(bool((obs["sensor_data"][c]["rgb"] == before[c]).all()))

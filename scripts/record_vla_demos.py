@@ -122,7 +122,10 @@ def main(argv=None):
 
     env = make_env(args.max_steps)
     actions = make_action_source(args)
-    ui = TerminalUI() if args.no_display else PygameUI()
+    control_camera = None
+    if args.device == "phone":
+        control_camera = "wrist" if args.control_frame == "wrist" else "front"
+    ui = TerminalUI() if args.no_display else PygameUI(control_camera=control_camera)
     saved = 0
     attempt = 0
     try:
