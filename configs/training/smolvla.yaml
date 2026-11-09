@@ -1,0 +1,24 @@
+# SmolVLA (dil koşullu) ince ayar - koşu ayarları TEK yerde.
+# Kullanım: python cloud/mahut_cloud.py train --config configs/training/smolvla.yaml --run <benzersiz_ad> [--steps N ...]
+policy: smolvla
+dataset: mahut_smoke_v1          # Volume `mahut-datasets` altındaki sürümlü ad (cloud/mahut_cloud.py upload ile yüklenir)
+repo_id: local/mahut_smoke_v1
+episodes: null                   # null = hepsi; ör. [0,1,2,...,9] ezber testi için
+gpu: L4                          # Modal GPU adı (ör. T4, L4, A10, L40S, A100-40GB, H100); kısa deneme için L4
+timeout_min: 30                  # TEK deneme için üst sınır (kısa deneme <= 30)
+max_retries: 2                   # zaman aşımı/preemption sonrası otomatik yeniden başlatma (checkpoint'ten devam)
+steps: 300
+batch_size: 16
+save_freq: 100                   # Volume'a kalıcı checkpoint sıklığı (adım)
+log_freq: 20
+num_workers: 4
+seed: 1000
+video_backend: pyav              # torchcodec Modal imajında denenmedi; pyav açıkça seçili
+wandb: false
+# SmolVLA'ya özgü: kamera adlarını smolvla_base'in beklediği adlara eşle; 3. kamera boş doldurulur.
+rename_map:
+  observation.images.front: observation.images.camera1
+  observation.images.wrist: observation.images.camera2
+policy_args:
+  path: lerobot/smolvla_base
+  empty_cameras: 1               # smolvla_base 3 kamera (camera1..3) ile eğitildi; bizde 2 var
