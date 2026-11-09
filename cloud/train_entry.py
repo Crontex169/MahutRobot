@@ -222,7 +222,7 @@ def main(argv=None) -> int:
     if a.dry_run:
         return 0
     return_info = run_training(argv_l, out_root / a.run)
-    return_info.update({"run": a.run, "resumed": resume_cfg is not None, "out_dir": str(out_dir),
+    return_info.update({"run": a.run, "launch_id": a.launch_id, "resumed": resume_cfg is not None, "out_dir": str(out_dir),
                         "config": cfg, "finished": time.strftime("%FT%T")})
     with open(out_root / a.run / "attempts.jsonl", "a") as fh:
         fh.write(json.dumps(return_info, default=str) + "\n")

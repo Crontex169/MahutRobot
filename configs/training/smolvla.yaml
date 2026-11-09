@@ -4,12 +4,12 @@ policy: smolvla
 dataset: mahut_smoke_v1_r1          # Volume `mahut-datasets` altındaki sürümlü ad (cloud/mahut_cloud.py upload ile yüklenir)
 repo_id: local/mahut_smoke_v1
 episodes: null                   # null = hepsi; ör. [0,1,2,...,9] ezber testi için
-gpu: L4                          # Modal GPU adı (ör. T4, L4, A10, L40S, A100-40GB, H100); kısa deneme için L4
+gpu: A10,L4                      # Modal GPU (yedekli liste: kapasite yoksa sıradakini dener); maliyet modeli A10'a göre
 timeout_min: 30                  # TEK deneme için üst sınır (kısa deneme <= 30)
 max_retries: 2                   # zaman aşımı/preemption sonrası otomatik yeniden başlatma (checkpoint'ten devam)
 steps: 300
 batch_size: 16
-save_freq: 100                   # Volume'a kalıcı checkpoint sıklığı (adım)
+save_freq: 1500                   # Volume'a kalıcı checkpoint sıklığı (adım)
 log_freq: 20
 num_workers: 4
 seed: 1000
@@ -22,3 +22,13 @@ rename_map:
 policy_args:
   path: lerobot/smolvla_base
   empty_cameras: 1               # smolvla_base 3 kamera (camera1..3) ile eğitildi; bizde 2 var
+
+# --- Eğitim devri (cloud/devir.py) ---
+# Kredi korumasında kullanılır (aylık 30 USD ücretsiz kredi, 5 USD güvenlik payı). SmolVLA: ölçülen ≈0,196 USD/1000 adım (A10, batch 16); 1,26 GB/checkpoint; 1500 adım ≈ 13 dk
+# save_freq: olası kayıp ≲ 15 dk ama Volume gereksiz dolmasın. `sabit_usd` = açılış (imaj, veri kopyası,
+# model yükleme) + CPU/RAM payı; ölçüm: modal billing report, gerçek/ön tahmin ≈ 1,2.
+maliyet:
+  usd_per_1000_steps: 0.2
+  sabit_usd: 0.08
+  steps_per_s: 1.9
+  startup_min: 5

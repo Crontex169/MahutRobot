@@ -28,7 +28,8 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 PY_BIN = Path(sys.executable).parent
-DATA_VOL, RUNS_VOL = "mahut-datasets", "mahut-runs"
+_SUF = os.environ.get("MAHUT_VOLUME_SUFFIX", "")  # yalnızca teste özel
+DATA_VOL, RUNS_VOL = f"mahut-datasets{_SUF}", f"mahut-runs{_SUF}"
 UPLOAD_DIRS = ("meta", "data", "videos")           # images/ (geçici kare PNG'leri) yüklenmez
 UPLOAD_FILES = ("mahut_episodes.jsonl", "DERIVED_FROM.json")
 

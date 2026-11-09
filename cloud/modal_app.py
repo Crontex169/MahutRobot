@@ -45,8 +45,10 @@ CPU_USD_PER_CORE_S = 0.0000131   # fiziksel çekirdek; konteyner >= 0.125 çekir
 MEM_USD_PER_GIB_S = 0.00000222
 
 app = modal.App("mahut-vla-train")
-data_vol = modal.Volume.from_name("mahut-datasets", create_if_missing=True)
-runs_vol = modal.Volume.from_name("mahut-runs", create_if_missing=True)
+# MAHUT_VOLUME_SUFFIX yalnızca TESTE özeldir (tek hesapla "ikinci kişi" taklidi için ayrı Volume adları).
+_SUF = os.environ.get("MAHUT_VOLUME_SUFFIX", "")
+data_vol = modal.Volume.from_name(f"mahut-datasets{_SUF}", create_if_missing=True)
+runs_vol = modal.Volume.from_name(f"mahut-runs{_SUF}", create_if_missing=True)
 
 # Yerel ~/.venvs/lerobot ile karşılaştırma: docs'ta / YAPILANLAR.md'de "Modal imajı" bölümünde.
 image = (
@@ -90,9 +92,7 @@ def cost_usd(gpu: str, seconds: float, cpu_cores: float = 0.125, mem_gib: float 
     return seconds * (GPU_USD_PER_S.get(gpu, 0.0) + cpu_cores * CPU_USD_PER_CORE_S + mem_gib * MEM_USD_PER_GIB_S)
 
 
-@app.function(timeout=15 * 60, **COMMON)
-def env_info() -> dict:
-    """Konteyner sürümleri (imaj doğrulaması) - GPU'suz, ucuz."""
+def _versions() -> dict:
     import importlib.metadata as md
 
     pk = ["torch", "torchvision", "lerobot", "transformers", "numpy", "av", "datasets", "accelerate",
@@ -101,6 +101,35 @@ def env_info() -> dict:
     out["python"] = sys.version.split()[0]
     out["ffmpeg"] = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True).stdout.splitlines()[0]
     return out
+
+
+@app.function(timeout=15 * 60, **COMMON)
+def env_info() -> dict:
+    """Konteyner sürümleri (imaj doğrulaması) - GPU'suz, ucuz."""
+    return _versions()
+
+
+@app.function(timeout=15 * 60, **COMMON)
+def volume_sha(run: str, step: int) -> dict:
+    """/runs/<koşu> altındaki (tüm deneme klasörlerinde) <adım> checkpoint'inin dosya özetleri.
+    Geri yükleme "aynı mı?" sorusu için; yalnızca okur. {'bulundu': bool, 'dosyalar': {göreli_yol: sha256}}."""
+    import hashlib
+
+    runs_vol.reload()
+    base = Path("/runs/runs") / run
+    found = {}
+    for d in sorted(base.glob("train*")):
+        ck = d / "checkpoints" / f"{step:06d}"
+        if ck.is_dir():
+            for sub in ("pretrained_model", "training_state"):
+                for p in sorted((ck / sub).glob("*")):
+                    if p.is_file():
+                        h = hashlib.sha256()
+                        with open(p, "rb") as fh:
+                            for b in iter(lambda: fh.read(1 << 20), b""):
+                                h.update(b)
+                        found[f"{sub}/{p.name}"] = h.hexdigest()
+    return {"bulundu": bool(found), "dosyalar": found}
 
 
 @app.function(gpu=GPU_SPEC, timeout=TIMEOUT_MIN * 60,
@@ -171,6 +200,16 @@ def train(cfg: dict, run_name: str, launch_id: str, resume: bool) -> dict:
         "loss_trace": last["losses"],
     }
     print("ÖZET", json.dumps({k: v for k, v in summary.items() if k != "loss_trace"}), flush=True)
+    # Tur kaydı (paketle okur): GPU, sürümler, bu launch_id'ye ait denemelerin toplam süresi
+    run_dir = Path("/runs/runs") / run_name
+    mine = [json.loads(x) for x in att_file.read_text().strip().splitlines() if x.strip()]
+    mine = [a for a in mine if a.get("launch_id") == launch_id]
+    if rc == 0:
+        (run_dir / f"round_{launch_id}.json").write_text(json.dumps({
+            "launch_id": launch_id, "gpu": gpu_name, "paket_surumleri": _versions(),
+            "tur_suresi_s": round(sum(a["wall_s"] for a in mine) + (wall - last["wall_s"] if mine else 0), 1),
+            "son_adim": last["last_logged_step"], "bitis": time.strftime("%FT%T"),
+        }))
     if rc != 0:  # adım atıldıktan sonraki hata (OOM, kesinti...): Modal yeniden dener, checkpoint'ten sürer
         raise RuntimeError(f"eğitim hata kodu {rc}")
     return summary
