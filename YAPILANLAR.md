@@ -292,3 +292,25 @@ Dört checkpoint (ACT/SmolVLA × duman/ezber) `eval_policy.py` ile 5 eğitim kom
 
 ### Testler ve temizlik
 `pytest tests/` → 184 test geçti; eklenenler: test_onehot, test_cloud_train_entry, test_mahut_cloud, test_make_act_dataset eklendi. Eski, `rm -rf "$OUT"` içeren `scripts/train_smolvla.sh` kaldırıldı; `scripts/collect_demos.py` duruyor. Gerçek teleop verisi (`~/vla_data/mahut_multishape`) yalnızca okundu (ACT türev denemesi ve bir yerel SmolVLA hata ayıklama koşusu için), değiştirilmedi ve Modal'a yüklenmedi.
+
+## 17. 🔁 Eğitim Devir Sistemi: `Data_Model` + `cloud/devir.py` (2026-11-09)
+Kaynak görev: [docs/VLA_DATA_MODEL_PROMPT.md](docs/VLA_DATA_MODEL_PROMPT.md). Kullanım: [PROJE_REHBERI.md](PROJE_REHBERI.md) §10, arkadaş kılavuzu [docs/EGITIM_DEVIR_KILAVUZU.md](docs/EGITIM_DEVIR_KILAVUZU.md). Dal: `feat/data-model-devir` (`feat/modal-egitim-hatti` üstünde).
+
+* **Kod:** [cloud/devir_lib.py](cloud/devir_lib.py) (saf mantık: manifest, güvenli tar, çatallanma, git, kredi; yalnızca stdlib), [cloud/devir.py](cloud/devir.py) (`durum, sabit-olustur, kur, basla, devam, paketle, temizle`), [modal_app.py](cloud/modal_app.py) (`volume_sha`, tur kaydı `round_<launch_id>.json`, test için `MAHUT_VOLUME_SUFFIX`), `train_entry` (attempts'e `launch_id`), [Data_Model/README.md](Data_Model/README.md), `.gitignore` (`Data_Model/*`, README hariç; model tar'ı `git status`'te görünmediği doğrulandı).
+* **Restore:** koşu adı = hat adı, veri adları sabit pakette sabit → `train_config.json` mutlak yolları (`/runs/runs/<hat>/train`, `/tmp/ds/<veri>`) **yeniden yazılmadan** çalıştı. `checkpoints/last` bağı olmadan lerobot sürdürdü; adım sayacı `training_step.json`'dan (120'den) devam etti, optimizer/zamanlayıcı durumu lerobot'un `load_training_state` çağrısıyla `training_state/`'ten yüklenir (özetleri tar'la aynı). Aynı adım Volume'da varsa özet aynıysa atlanır (denendi), farklıysa hata (birim testi), geri yükleme sonrası özet yeniden doğrulanır.
+* **Gerçek uçtan uca (ACT, `mahut_smoke_v1`, 100'er adım; tek hesap, ikinci kişi = ayrı `_test2` Volume'lar):**
+
+| Tur | Kişi / Volume | Adım | Loss (ilk → son) | Süre | Not |
+|---|---|---|---|---|---|
+| 1 `basla` | deniz / varsayılan | 0→100 | 25,81 → 3,877 | 38,5 sn (A10) | iter_0001 (619 MB) |
+| 2 `devam` | ali / `_test2` | 100→200 | **3,670 (adım 120)** → 2,954 | 33,4 sn | tar `kur`+restore sonrası; parent=iter_0001 |
+| 3 `devam` | veli / `_test2` | 200→300 | 2,942 (adım 220) → 2,666 | (süre kaydedilmedi) | adım 200 zaten vardı: restore atlandı; parent=iter_0002 |
+
+  Adım sayacı kaldığı yerden sürdü, loss sıçramadı (3,877→3,670, 2,954→2,942). `parent`/`parent_iterasyon` zinciri doğru. iter_0002 checkpoint'i `eval_policy.py` ile yerelde hatasız açıldı (5 bölüm, 0/5 başarı beklenen; eylemler sonlu). Paketler e-posta, profil adı ya da yerel yol içermiyor (taranarak doğrulandı).
+* **Hatalı senaryolar (canlı):** yarım tar → "tar okunamıyor"; tek bit bozuk → "sha256 tutmuyor"; kirli git → durdu; farklı `sabit` sürümü → durdu; sabit tar yok → durdu; kredi sınırı → azami adım söylendi. Hiçbirinde Modal'a iş gönderilmedi. Çatallanma, yol kaçışı, pickle, sembolik/sert bağ, kötü ad, `temizle` kuralları birim testlerinde. `temizle --onayla` yalnızca `_test2` Volume'unda denendi (200 ve 100 silindi, 300 ve yerel tar'lar kaldı).
+* **Bulunan hata:** sert bağlı dosyalar (eski `make_act_dataset` sürümünün bıraktığı) tar'a bağ olarak yazılıp sabit tar'ı bozuyordu; düz dosya yazılacak şekilde düzeltildi ve tar artık doğrulanmadan son ada taşınmıyor (testli).
+* **Boyutlar:** `sabit_v1.tar` 341 MB (250 bölüm + ACT türevi, videolar tek kopya), ACT iterasyon tar'ı 619 MB (SmolVLA ≈ 1,26 GB). Volume ücretsiz depolama: Modal fiyat sayfası "Volumes … 1 TiB / ay ücretsiz" diyor, sonrası 0,09 USD/GiB-ay; `modal billing summary` Volume 0,70 USD'yi `free_storage` ile sıfırlıyor.
+* **Harcama:** bu görev ≈ **0,06 USD** (`modal billing summary --json` ephemeral_apps 0,747 → 0,810; ay toplamı 0,81 USD, kredi ile ödendi, fatura 0).
+* **Test Volume'ları (silinmedi):** `mahut-runs_test2`, `mahut-datasets_test2`; ayrıca varsayılan `mahut-runs` içinde `act_e2e` koşusu ve `mahut-datasets` içinde `mahut_smoke_v1_s1`, `mahut_smoke_v1_act_s1`. Yerelde `Data_Model/_test_artifaktlari/` (bilerek yarım/bozuk tar'lar) ve 3 iterasyon dosyası `Data_Model/iterasyonlar/act_e2e/`.
+* **Testler:** `test_devir_lib`, `test_devir_cli` (48 test, Modal gerektirmez).
+* **Doğrulanamayanlar:** gerçek ikinci hesap (yalnızca ayrı Volume adlarıyla taklit), Windows/macOS, Drive'a gerçek yükleme-indirme, SmolVLA ile `devir` hattı (yalnızca ACT çalıştırıldı; SmolVLA yapılandırması ve maliyet modeli birim düzeyinde), kredi bitince Modal davranışı (dokümanda yok), kartsız hesap: Modal faturalama belgesi "kullanmak için ödeme yöntemi gerekir" diyor (kullanıcı karar versin).

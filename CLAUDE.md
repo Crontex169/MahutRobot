@@ -38,6 +38,13 @@ python cloud/mahut_cloud.py train --config configs/training/{smolvla,act}.yaml -
 python cloud/mahut_cloud.py download --run <ad> ; python cloud/mahut_cloud.py ls
 ```
 
+Eğitim devri (`cloud/devir.py`, ayrıntı `PROJE_REHBERI.md` §10, arkadaş kılavuzu `docs/EGITIM_DEVIR_KILAVUZU.md`; yalnızca modal+pyyaml gerekir, herkes KENDİ Modal hesabını kullanır):
+
+```bash
+python cloud/devir.py sabit-olustur --surum 1 --veri <kök> [--act-veri <kök>_act]   # Data_Model/sabit/sabit_v1.tar
+python cloud/devir.py kur ; python cloud/devir.py basla|devam --hat H --kisi K --adim N ; python cloud/devir.py paketle --hat H --kisi K
+```
+
 Varsayılan veri kökü `~/vla_data/mahut_multishape` (repo_id `local/mahut_multishape`); veri her zaman eklenir, asla silinmez. Diğer: `scripts/collect_demos.py` (eski PickCube), URDF doğrulama `scripts/check_urdf.py`.
 
 ## Mimari
@@ -51,7 +58,8 @@ Paket `src/mahut_kol/` (setuptools, `where = src`). Akış: `robots` → `envs` 
 - **`speech/`**: tamamen yerel Türkçe sesli komut hattı: `audio_recorder` (sounddevice, 16 kHz mono, push-to-talk/VAD) → `stt_engine` (faster-whisper; CUDA'da float16, CPU'da int8) → `command_parser` (kural tabanlı, Türkçe çekim/bulunma ekleri, `MultiShapeRelationalTask` uzamsal ilişkilerine eşlenir) → `voice_commander` (hepsini birleştiren `VoiceCommander`).
 - **`teleop/`** ve kökteki **`Teleoperasyonlar/`**: PS4/klavye kontrolcüleri ve demo kaydı; iki yerde benzer kod var (`utils/teleop_ps4.py` da dahil), değişiklik yaparken hangisinin kullanıldığını kontrol et. `teleop/action_source.py` cihazdan bağımsız `ActionSource` (7 boyutlu `pd_joint_pos`); `teleop/phone_webxr.py` + `teleop/web/index.html` telefon WebXR teleopu (Side_project'ten uyarlanmış kopya).
 - **`cloud/`**: Modal eğitim hattı (`modal_app.py` imaj+Volume+uzak fonksiyon, `train_entry.py` koşu/devam mantığı, `mahut_cloud.py` CLI). Koşu ayarları `configs/training/*.yaml`. ACT dil almaz: `commands/onehot.py` 5 slotu 17 boyutlu `observation.environment_state`'e çevirir (eğitim türev veri kümesiyle, `eval_policy.py` aynı fonksiyonla).
-- **`configs/`**: `robot/`, `task/`, `training/` YAML'ları; `commands/heldout_commands.json`.
+- **`cloud/devir.py` + `devir_lib.py`**: eğitimin kişiler arası devri (güvenli tar + manifest/sha256, restore, çatallanma, kredi koruması). `Data_Model/` (Drive ile aynı düzen) git'e girmez, yalnızca `Data_Model/README.md` izlenir. `MAHUT_VOLUME_SUFFIX` yalnızca teste özeldir.
+- **`configs/`**: `robot/`, `task/`, `training/` YAML'ları (`training/*.yaml` içinde `maliyet` kredi modeli); `commands/heldout_commands.json`.
 - **`assets/`**: robot STL mesh'leri, URDF/MJCF ve nesne meshleri. **`Side_project/`**: SO-100 MuJoCo/WebXR/webcam teleop denemeleri, ana pakete bağlı değil.
 
 ## Notlar

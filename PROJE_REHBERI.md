@@ -345,3 +345,46 @@ ffmpeg Debian 5.1.9 (apt); yalnızca `opencv-python-headless`; torchcodec kurulu
 
 ### Ölçüm tablosu (kısa denemeler, 250 scripted bölüm, batch 16)
 Ayrıntılar `YAPILANLAR.md` §16.
+
+---
+
+## 10. 🔁 Eğitimi Kişiler Arasında Devretme (Data_Model + `cloud/devir.py`)
+
+Arkadaşların adım adım izleyeceği kılavuz: [docs/EGITIM_DEVIR_KILAVUZU.md](docs/EGITIM_DEVIR_KILAVUZU.md).
+Herkes **kendi** Modal hesabını kendi bilgisayarında kullanır (`modal setup`); token paylaşımı, profil değiştirme ya da
+çoklu hesap özelliği yoktur. Model Drive'da durur, dosyalar tarayıcıdan elle yüklenip indirilir (rclone/Drive API yok).
+Kod Drive'a konmaz: herkes aynı git commit'inden çalışır.
+
+```text
+Data_Model/                         # git'e girmez (yalnızca README.md izlenir)
+├── sabit/sabit_v1.tar              # veri kümesi (+ACT türevi, videolar tek kopya); bir kez indirilir, değişmez
+└── iterasyonlar/<hat>/iter_0002_step_010000_ali.tar   # pretrained_model + training_state + train.log + attempts.jsonl + manifest.json
+```
+Manifest: format sürümü, hat, iterasyon, adım, kişi (kısa ad), **parent**, politika, git commit, `configs/training` içeriği,
+sabit sürümü, paket sürümleri, GPU, tur süresi, her dosyanın sha256'sı. Tar'lar sıkıştırmasız ve yalnızca
+`.safetensors/.json/.jsonl/.log` düz dosyalarından oluşur; pickle, mutlak yol, `..`, sembolik/sert bağ reddedilir.
+
+| Komut | İş |
+|---|---|
+| `devir.py durum --hat H` | sabit, son iterasyon, profil (kimliksiz), bu ayki harcama, sıradaki no, azami adım |
+| `devir.py sabit-olustur --surum 1 --veri V [--act-veri A]` | `Data_Model/sabit/sabit_v1.tar` |
+| `devir.py kur` | sabit tar'ı doğrular, kendi Volume'una yükler (özet aynıysa atlar) |
+| `devir.py basla --hat H --config configs/training/act.yaml --kisi K --adim N` | ebeveynsiz ilk tur |
+| `devir.py devam --hat H --kisi K --adim N [--sec dosya]` | son tar'ı doğrular, Volume'a geri yükler, hedef = mevcut adım + N |
+| `devir.py paketle --hat H --kisi K` | tam checkpoint'i indirir, tar'ı üretir ve doğrular |
+| `devir.py temizle --hat H [--onayla]` | paketlenmiş eski checkpoint'leri KENDİ Volume'undan siler (en sonuna dokunmaz) |
+
+**Geri yükleme (restore):** koşu adı = hat adı ve veri adları sabit pakette sabit olduğundan `train_config.json`
+içindeki mutlak yollar (`/runs/runs/<hat>/train`, `/tmp/ds/<veri>`) her hesapta aynıdır; yollar yeniden yazılmaz.
+Checkpoint `/runs/<hat>/train/checkpoints/<adım>/` altına konur, `launch.json` yoksa yazılır, `checkpoints/last`
+bağı gerekmez. Aynı adım Volume'da varsa özet aynıysa atlanır, farklıysa hata verilir.
+
+**`devam` öncesi denetimler (biri başarısızsa eğitim başlamaz):** tar okunur + tüm sha256 tutar + güvenli üyeler; git
+temiz (Data_Model/ hariç) ve `cloud/`, `configs/training/`, `src/mahut_kol/commands/` manifest commit'iyle aynı; Modal
+imajındaki paket sürümleri manifest ile aynı; sabit sürümü ve hat eşleşir; çatallanma yok (`--sec` ile çözülür);
+`--adim` kredi sınırı ve zaman aşımı tavanı içinde.
+
+**Kredi:** `modal billing summary --json` ile bu ayki gerçek harcama (kredi + faturalanan) okunur; 30 USD'den 5 USD
+güvenlik payı düşülür. Politika bazında maliyet `configs/training/*.yaml` → `maliyet` bölümündedir (SmolVLA ≈ 0,20,
+ACT ≈ 0,05 USD/1000 adım + sabit pay). `save_freq`: ACT 5000 (~9 dk), SmolVLA 1500 (~13 dk).
+`timeout_min` `--adim`'den hesaplanır, `--max-timeout-min` (varsayılan 90) hâlâ geçerlidir.
