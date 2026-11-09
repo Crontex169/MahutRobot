@@ -29,7 +29,8 @@ import modal
 
 HERE = Path(__file__).resolve().parent
 
-GPU = os.environ.get("MAHUT_GPU", "L4")
+GPU = os.environ.get("MAHUT_GPU", "L4")  # tek ad ya da yedekli liste: "L4,A10" (kapasite yoksa sıradakini dener)
+GPU_SPEC = GPU.split(",") if "," in GPU else GPU
 TIMEOUT_MIN = int(os.environ.get("MAHUT_TIMEOUT_MIN", "30"))
 MAX_RETRIES = int(os.environ.get("MAHUT_MAX_RETRIES", "2"))
 
@@ -73,6 +74,15 @@ COMMON = dict(
 )
 
 
+def _gpu_key(device_name: str) -> str:
+    """torch cihaz adı -> fiyat tablosu anahtarı (yedekli GPU listesinde gerçek GPU'ya göre)."""
+    n = device_name.upper()
+    for k in sorted(GPU_USD_PER_S, key=len, reverse=True):
+        if k.replace("-", " ").split()[0] in n.split():
+            return k
+    return GPU.split(",")[0]
+
+
 def cost_usd(gpu: str, seconds: float, cpu_cores: float = 0.125, mem_gib: float = 0.5) -> float:
     """Tahmini maliyet (GPU + asgari CPU/bellek). CPU/bellek gerçek kullanıma göre biraz artabilir."""
     return seconds * (GPU_USD_PER_S.get(gpu, 0.0) + cpu_cores * CPU_USD_PER_CORE_S + mem_gib * MEM_USD_PER_GIB_S)
@@ -91,7 +101,7 @@ def env_info() -> dict:
     return out
 
 
-@app.function(gpu=GPU, timeout=TIMEOUT_MIN * 60,
+@app.function(gpu=GPU_SPEC, timeout=TIMEOUT_MIN * 60,
               retries=modal.Retries(max_retries=MAX_RETRIES, initial_delay=5.0, backoff_coefficient=1.0),
               **COMMON)
 def train(cfg: dict, run_name: str, launch_id: str, resume: bool) -> dict:
@@ -147,7 +157,7 @@ def train(cfg: dict, run_name: str, launch_id: str, resume: bool) -> dict:
         "run": run_name, "returncode": rc, "gpu_modal": GPU, "gpu_device": gpu_name,
         "wall_s": round(wall, 1), "train_wall_s": last["wall_s"],
         "steps_per_s": last.get("steps_per_s_from_log"), "resumed": last["resumed"],
-        "last_step": last["last_logged_step"], "est_cost_usd": round(cost_usd(GPU, wall), 3),
+        "last_step": last["last_logged_step"], "est_cost_usd": round(cost_usd(_gpu_key(gpu_name), wall), 3),
         "loss_trace": last["losses"],
     }
     print("ÖZET", json.dumps({k: v for k, v in summary.items() if k != "loss_trace"}), flush=True)

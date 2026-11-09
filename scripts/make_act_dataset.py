@@ -107,6 +107,7 @@ def build(src: Path, dst: Path) -> dict:
         pq.write_table(t, out)
 
     # 3) info.json + stats.json
+    (dst / "meta").mkdir(exist_ok=True)
     names = ["manipulated_color_" + c for c in ("red", "green", "blue")] \
         + ["manipulated_shape_" + c for c in ("cube", "cylinder", "triangular_prism")] \
         + ["reference_color_" + c for c in ("red", "green", "blue")] \

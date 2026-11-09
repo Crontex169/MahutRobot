@@ -148,8 +148,22 @@ def cmd_download(a):
     out = dest / "checkpoints" / f"{step:06d}"
     out.parent.mkdir(parents=True)
     subs = ["pretrained_model"] + (["training_state"] if a.with_training_state else [])
+    import modal
+
+    vol = modal.Volume.from_name(RUNS_VOL)
     for sub in subs:
-        subprocess.run([modal_cli(), "volume", "get", RUNS_VOL, f"{ck}/{sub}", str(out / sub)], check=True)
+        n = 0
+        for e in vol.listdir(f"{ck}/{sub}", recursive=True):
+            if e.type.name != "FILE":
+                continue
+            rel = Path(e.path).relative_to(Path(ck) / sub)
+            target = out / sub / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with open(target, "wb") as fh:
+                for chunk in vol.read_file(e.path):
+                    fh.write(chunk)
+            n += 1
+        print(f"  {sub}: {n} dosya")
     for f in ("train.log", "attempts.jsonl", "launch_history.jsonl"):
         subprocess.run([modal_cli(), "volume", "get", RUNS_VOL, f"{remote}/{f}", str(dest / f)], capture_output=True)
     (dest / "checkpoints" / "last").symlink_to(out.name)
