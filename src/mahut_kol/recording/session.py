@@ -141,7 +141,9 @@ class PygameUI:
     Klavye teleopu (GamepadKeyboardActionSource) da bu pencerenin odağını kullanır.
     """
 
-    def __init__(self, scale: int = 3):
+    def __init__(self, scale: int = 3, control_camera: Optional[str] = None):
+        # Telefon hareketinin göre olduğu kamera ("front" | "wrist"); None = etiket yok
+        self.control_camera = control_camera
         # SDL varsayılan olarak SIGINT/SIGTERM'i yakalayıp pencereye QUIT olayı gönderir; bu da
         # betiğin "çıkılıyor" deyip sessizce kapanmasına yol açıyordu. Sinyaller Python'da kalsın.
         os.environ.setdefault("SDL_NO_SIGNAL_HANDLERS", "1")
@@ -188,6 +190,7 @@ class PygameUI:
             if overlay and cam in overlay:
                 self._draw_goal(surf, overlay[cam], img.shape[1], img.shape[0], success)
             self.screen.blit(surf, (i * side, 0))
+            self._draw_control_label(cam, i * side, side)
         y0 = 224 * self.scale + 8
         col = (80, 230, 120) if success else (235, 235, 235)
         self.screen.blit(self.font.render(self.instruction, True, col), (10, y0))
@@ -196,6 +199,23 @@ class PygameUI:
         self.screen.blit(self.small.render(hint, True, col), (10, y0 + 56))
         pg.display.flip()
         return self._events()
+
+    def _draw_control_label(self, cam: str, x0: int, side: int) -> None:
+        """
+        İki kamerada sağ-sol ve ileri-geri birbirinin tersidir; operatör yanlış görüntüye bakınca
+        kontrol ters sanılıyordu. Yalnızca pencereye çizilir, kayda girmez.
+        """
+        if self.control_camera is None:
+            return
+        pg = self.pg
+        active = cam == self.control_camera
+        color = (60, 220, 110) if active else (235, 170, 60)
+        text = "KONTROL BU GÖRÜNTÜYE GÖRE" if active else "SADECE BAKIŞ - YÖNLER TERS"
+        label = self.small.render(text, True, (0, 0, 0))
+        pg.draw.rect(self.screen, color, (x0 + 6, 6, label.get_width() + 12, label.get_height() + 6))
+        self.screen.blit(label, (x0 + 12, 9))
+        if active:
+            pg.draw.rect(self.screen, color, (x0, 0, side, side), width=4)
 
     def _draw_goal(self, surf, polys, w: int, h: int, success: bool) -> None:
         """Kabul bölgesi: yarı saydam siyah daire + kenar + merkez noktası (yalnızca ekranda)."""
