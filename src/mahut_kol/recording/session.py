@@ -218,15 +218,16 @@ class PygameUI:
             pg.draw.rect(self.screen, color, (x0, 0, side, side), width=4)
 
     def _draw_goal(self, surf, polys, w: int, h: int, success: bool) -> None:
-        """Kabul bölgesi: yarı saydam siyah daire + kenar + merkez noktası (yalnızca ekranda)."""
+        """Kabul bölgesi: yarı saydam yeşil daire + kenar + merkez noktası (yalnızca ekranda).
+        Başarıda kenar beyaz ve kalın. Koyu daire ahşap masada seçilmiyordu."""
         pg = self.pg
         sx, sy = surf.get_width() / w, surf.get_height() / h
         ring = [(float(x * sx), float(y * sy)) for x, y in polys[0]]
         cx, cy = float(polys[1][0][0] * sx), float(polys[1][0][1] * sy)
         layer = pg.Surface(surf.get_size(), pg.SRCALPHA)
-        pg.draw.polygon(layer, (0, 0, 0, 120), ring)
-        edge = (40, 200, 90, 255) if success else (0, 0, 0, 255)
-        pg.draw.polygon(layer, edge, ring, width=2)
+        pg.draw.polygon(layer, (60, 230, 110, 140 if success else 90), ring)
+        edge = (255, 255, 255, 255) if success else (40, 220, 90, 255)
+        pg.draw.polygon(layer, edge, ring, width=4 if success else 3)
         pg.draw.circle(layer, (255, 255, 255, 220), (cx, cy), 3)
         surf.blit(layer, (0, 0))
 
