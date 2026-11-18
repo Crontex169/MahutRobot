@@ -17,16 +17,23 @@ Projenin temel hedefi:
 
 ## 2. 🦾 Robot Modeli ve Donanım Spesifikasyonu
 
-Projede kullanılan robot kolu, 3D baskı parçalar, yüksek torklu **Feetech FT5330M 35Kg (7.4V)** dijital servo motorlar ve **ESP32-S3-N16R8** kontrolcü kartı ile çalışan 5-DOF kol ve çift parmak paralel kıskaçtan oluşur:
+Projede kullanılan robot kolu (yeni kol, 2026-11), 3D baskı parçalar ve 6 adet **Feetech FT5330M**
+(PWM 500–2500 µs, ±90°, ölü bant ~0.4°, mekanik durdurucu yok) servo ile çalışan 5-DOF kol ve tek
+servolu çift parmak paralel kıskaçtan oluşur. Model kaynağı `Yeni_model/arm_mujoco.xml` (Fusion
+MJCF, git'te izlenmez); URDF `scripts/mjcf_to_urdf.py` ile üretilir.
 
-| Eklem No | Eklem Adı | Motor Tipi | Stall Torku | Hareket Açıklaması |
-| :---: | :--- | :--- | :--- | :--- |
-| **0** | `joint0` | Feetech FT5330M | 35 kg·cm (3.432 Nm) | 100mm Lazy Susan rulmanlı taban dönüşü (Yaw) |
-| **1** | `joint1` | Feetech FT5330M | 35 kg·cm (3.432 Nm) | Omuz eğim eklemi (Shoulder Pitch) |
-| **2** | `joint2` | Feetech FT5330M | 35 kg·cm (3.432 Nm) | Dirsek eğim eklemi (Elbow Pitch) |
-| **3** | `joint3` | Feetech FT5330M | 35 kg·cm (3.432 Nm) | Bilek eğim eklemi (Wrist Pitch) |
-| **4** | `joint4` | Feetech FT5330M | 35 kg·cm (3.432 Nm) | Bilek dönüş eklemi (Wrist Roll) |
-| **5-6** | `finger_left/right` | Feetech FT5330M | 35 kg·cm (15N tutuş) | Çift parmaklı lineer kramayer kıskaç (Gripper-v2) |
+| Eklem | Ad (MJCF) | Hareket | Aralık |
+| :---: | :--- | :--- | :--- |
+| 0 | `joint0` (j1) | taban yaw | ±90° |
+| 1 | `joint1` (j2) | omuz pitch | ±90° |
+| 2 | `joint2` (j3) | dirsek pitch | ±90° |
+| 3 | `joint3` (j4) | bilek pitch | ±90° |
+| 4 | `joint4` (j5) | bilek roll (= yaklaşma ekseni) | ±90° |
+| kıskaç | servo j6 → `finger_left/right` | tek servo, iki prismatik parmak | 0 = açık (46 mm), π rad = kapalı |
+
+**CAD'den bilinçli sapmalar (önemli):** simülasyonda kıskaç roll servosuna **90° döndürülmüş**
+monte edilmiştir (`joint4 = 0`'da parmaklar yatay; CAD'de kol düzlemindeydi) ve açık kıskaç
+**46 mm**'dir (CAD 38 mm). Gerçek kol buna göre kurulmalı; ayrıntı `scripts/mjcf_to_urdf.py`.
 
 > 📌 **Ayrıntılı Donanım ve Sim-to-Real Kılavuzu:** Motor torkları, ESP32-S3 mimarisi ve mekanik hesaplar için [docs/DONANIM_BILGILERI.md](docs/DONANIM_BILGILERI.md) belgesine bakınız.
 
@@ -60,14 +67,11 @@ Projede kullanılan robot kolu, 3D baskı parçalar, yüksek torklu **Feetech FT
 ```text
 MahutKol/
 ├── assets/
-│   ├── meshes/               # Robotun 3D STL parçaları (motorlar, gövde, kıskaç)
-│   ├── urdf/mahut_kol.urdf   # MahutKol eklem, link ve atalet tanımları
-│   ├── mahut_kol_robot.xml   # Bağımsız MuJoCo robot modeli
-│   ├── mahut_kol_maniskill.xml # ManiSkill için optimize MJCF modeli
-│   └── mahut_kol_scene.xml   # Masa, küp ve kameralı tam MuJoCo sahnesi
+│   ├── meshes/               # Yeni kolun STL parçaları (mjcf_to_urdf.py üretir)
+│   ├── urdf/mahut_kol.urdf   # Üretilmiş URDF (elle düzenleme; kaynak Yeni_model/arm_mujoco.xml)
+│   └── objects/              # Görev nesne meshleri (üçgen prizma)
 ├── configs/
-│   ├── robot/mahut_kol.yaml  # Eklem adları, PD kazançları, qpos sınırları
-│   ├── task/pick_place.yaml  # Küp taşıma görevi ve kamera parametreleri
+│   ├── robot/mahut_kol.yaml  # Robot özeti (kod okumaz; tek kaynak mahut_robot.py)
 │   └── commands/heldout_commands.json # Değerlendirmeye ayrılan 30 komut (sabit)
 ├── docs/                     # Ayrıntılı geliştirici kılavuzları
 │   ├── DONANIM_BILGILERI.md  # Feetech FT5330M, ESP32-S3 ve mekanik hesaplar
@@ -87,10 +91,9 @@ MahutKol/
 │   └── README.md             # Teleoperasyon rehberi ve tuş haritası
 ├── scripts/
 │   ├── teleop_maniskill_ps4.py # (Teleoperasyonlar/ yönlendiricisi)
-│   ├── sim_custom_task.py    # PushCube özel görev görselleştirici
-│   ├── sim_minimal.py        # Sade sahne simülatörü
-│   ├── view_mujoco.py        # MuJoCo model ve sahne görüntüleyici
-│   ├── collect_demos.py      # (eski) PickCube scripted veri toplama
+│   ├── mjcf_to_urdf.py       # Yeni kol MJCF -> URDF + mesh (kıskaç döndürme/açıklık sapmaları)
+│   ├── check_robot_control.py # Eklem adım cevabı + kavrama doğrulaması (G2)
+│   ├── view_multi_shape.py   # Görev sahnesi görüntüleyici
 │   ├── record_vla_demos.py   # VLA teleop kaydı (telefon/PS4/klavye; queue/text/voice komut)
 │   ├── generate_scripted_demos.py # Otomatik scripted VLA demoları (aynı şema)
 │   ├── validate_dataset.py   # Veri kümesi doğrulama + kapsama + held-out sızıntı raporu
@@ -137,20 +140,19 @@ MahutKol/
 
 ## 6. 🚀 Hızlı Başlangıç ve Komut Kılavuzu
 
-### 1. MahutKol Özel Modelini Simülasyonda PS4 / Gamepad ile Kontrol Etme:
+### 1. Görev sahnesini izleme:
 ```bash
-python Teleoperasyonlar/teleop_maniskill_ps4.py
-```
-*(Varsayılan olarak `MahutKol-PickCube-v1` ortamında kullanıcının özel 5-DOF + paralel kıskaçlı modeli açılır)*
-
-### 2. Özel Görev (PushCube) Ortamını Çalıştırma:
-```bash
-python scripts/sim_custom_task.py
+python scripts/view_multi_shape.py
 ```
 
-### 3. MuJoCo İnteraktif Sahne ve Robot Görüntüleyici:
+### 2. Yeni kol URDF'ini MJCF'ten yeniden üretme:
 ```bash
-python scripts/view_mujoco.py
+python scripts/mjcf_to_urdf.py   # Yeni_model/arm_mujoco.xml -> assets/urdf + assets/meshes
+```
+
+### 3. Robot kontrolcüsü doğrulaması (adım cevabı + kavrama):
+```bash
+python scripts/check_robot_control.py
 ```
 
 ### 4. URDF Doğrulama ve Eklem Limitleri Testi:
@@ -209,15 +211,15 @@ RIGHT = +y, TOP = üstü (referans üçgen prizmaysa geçersiz). Δ = 0.06 m. 33
 
 ### Kameralar (geçici; donanım netleşince güncellenecek)
 * **front:** sabit, operatör tarafında, 224×224.
-* **wrist:** kıskacın üstüne (TCP) monte, parmak uçlarına bakar, 224×224.
+* **wrist:** kıskacın uç kısmına, üst tarafa (TCP çerçevesi) monte, parmak uçlarına bakar, 224×224.
 Değerler `src/mahut_kol/envs/multi_shape_task.py` başındaki `CAMERA_*` sabitlerinde tek yerden değişir.
 
 ### Veri şeması (LeRobotDataset, lerobot 0.4.4, fps 20)
 | Özellik | Tür | Şekil |
 |---|---|---|
 | `observation.images.front`, `observation.images.wrist` | video | 224×224×3 |
-| `observation.state` | float32 | 7 (joint0-4, finger_left, finger_right) |
-| `action` | float32 | 7 (mutlak `pd_joint_pos` hedefi) |
+| `observation.state` | float32 | 6 (joint0-4, kıskaç servo açısı rad; `robot_state(qpos)`) |
+| `action` | float32 | 6 (mutlak `pd_joint_pos` hedefi: joint0-4 + kıskaç 0..π rad) |
 | `command.slots` | int64 | 5 |
 | `task` | metin | İngilizce talimat |
 
@@ -278,9 +280,10 @@ dene, **Q** çık. Held-out komutlar kayıtta atlanır (`--include-heldout` ile 
     / `tilt_from` / `roll_from` işaretlerini değiştirin.
 
 ### Çalışma alanı ve kavrama
-MahutKol tam aşağı bakarak yalnızca tabana çok yakın erişebildiği için kavrama düşeyden 45–55°
-eğik yapılır. Nesne/hedef alanı x ∈ [0.10, 0.22], y ∈ [−0.16, 0.12] m (`scripts/compute_workspace.py`,
-çıktı `docs/workspace_map.txt`). Kinematik `src/mahut_kol/robots/kinematics.py`: URDF'ten saf numpy
+Yeni kolda bilek (`joint4` → TCP) 18.5 cm, kol + önkoldan uzun; ±90° limitlerle masada dikey
+kavrama yok, kavrama düşeyden 40–55° eğik ve parmaklar yatay (`joint4 = 0`). Nesne/hedef alanı
+x ∈ [0.10, 0.22], y ∈ [−0.14, 0.14] m (`scripts/compute_workspace.py`, spawn erişilebilirliği
+`--spawn-check`). Kinematik `src/mahut_kol/robots/kinematics.py`: URDF'ten saf numpy
 FK (SAPIEN TCP pozuyla birebir), eğim kısıtlı DLS IK; telefon teleopu ve scripted demolar aynı
 çözücüyü kullanır.
 

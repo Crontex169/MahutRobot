@@ -1,38 +1,27 @@
-# MahutKol Robot Konfigürasyonu (Güncel Model: 5-DOF Kol + Gripper-v2)
+# MahutKol robot özeti (yeni kol, 2026-11). Kod bu dosyayı okumaz; tek kaynak
+# src/mahut_kol/robots/mahut_robot.py ve assets/urdf/mahut_kol.urdf (scripts/mjcf_to_urdf.py ile
+# Yeni_model/arm_mujoco.xml'den üretilir).
 robot:
   name: "mahut_kol"
   urdf_path: "assets/urdf/mahut_kol.urdf"
-  mjcf_path: "assets/mahut_kol_robot.xml"
-  maniskill_mjcf_path: "assets/mahut_kol_maniskill.xml"
-  
-  # Eklem Adları (5 Kol Eklemi + 2 Parmak)
-  arm_joint_names:
-    - "joint0"        # Taban Dönüşü (Yaw) [-1.57, +1.57]
-    - "joint1"        # Omuz Eğimi (Pitch) [0.00, +3.14]
-    - "joint2"        # Dirsek Eğimi (Pitch) [-1.00, +1.57]
-    - "joint3"        # Bilek Eğimi (Pitch) [-3.14, 0.00]
-    - "joint4"        # Bilek Dönüşü (Roll) [-1.57, +1.57]
-  
-  gripper_joint_names:
-    - "finger_left"   # Sol Çene (Lineer Slide, 0.0 - 0.042m)
-    - "finger_right"  # Sağ Çene (Lineer Slide, 0.0 - 0.042m)
-    
-  # End-Effector (Uç İşlevci / TCP) Referans Link Adı
+  source_mjcf: "Yeni_model/arm_mujoco.xml"   # git'te izlenmez
+
+  # 6 Feetech FT5330M (PWM 500-2500 µs, ±90°, ölü bant ~0.4°, mekanik durdurucu yok)
+  arm_joint_names:      # MJCF j1..j5, hepsi [-1.5708, 1.5708] rad
+    - "joint0"          # taban yaw
+    - "joint1"          # omuz pitch
+    - "joint2"          # dirsek pitch
+    - "joint3"          # bilek pitch
+    - "joint4"          # bilek roll (= yaklaşma ekseni); 0'da parmaklar yatay
+  gripper_joint_names:  # tek servo (MJCF j6) -> iki prismatik parmak, 0 = açık, 0.022 m = kapalı
+    - "finger_left"
+    - "finger_right"
   ee_link_name: "link_gripper_center"
-  
-  # Varsayılan Başlangıç Pozisyonu (joint0, joint1, joint2, joint3, joint4, finger_left, finger_right)
-  default_qpos: [0.0, 0.4, 0.0, 0.0, 0.0, 0.02, 0.02]
-  
-  # Kontrolcü Parametreleri (PD Kazançları)
-  controllers:
-    arm:
-      controller_type: "pd_joint_pos"
-      stiffness: 80.0                  # MJCF class="servo" kp değeri
-      damping: 10.0
-      force_limit: 3.432               # Maksimum tork (Nm)
-    
-    gripper:
-      controller_type: "pd_joint_pos"
-      stiffness: 150.0                 # Gerçekçi malzeme esnekliği kp değeri
-      damping: 15.0                    # Salınım önleyici sönümleme
-      force_limit: 15.0                # Güvenli fiziksel kavrama kuvveti (N)
+
+  # Eylem / observation.state (6): joint0..4 (rad) + kıskaç servo açısı (rad, 0 = açık, π = kapalı)
+  action_dim: 6
+  # Robot qpos (7) ile bölüm başı duruşu: envs/multi_shape_task.py ROBOT_REST_QPOS
+
+  controllers:          # robots/mahut_robot.py
+    arm: {type: pd_joint_pos, stiffness: 400.0, damping: 20.0, force_limit: 3.4}
+    gripper: {type: pd_joint_pos (servo açısı -> parmak), stiffness: 1000.0, damping: 10.0, force_limit: 10.0}
