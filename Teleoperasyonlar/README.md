@@ -8,11 +8,11 @@ Bu klasör, **MahutKol** 5-DOF robot kolu ve paralel kıskaç sistemi için geli
 
 | Dosya | Açıklama |
 |---|---|
-| `teleop_maniskill_ps4.py` | **Ana simülasyon teleoperasyon betiği.** ManiSkill 3 ortamında PS4 kolu, genel gamepad veya klavye ile canlı kontrol sağlar (`pd_joint_target_delta_pos` tork korumalı ve sıfır kaymalı). |
+| `teleop_maniskill_ps4.py` | **Canlı simülasyon teleoperasyonu (kayıt yok).** Görev ortamında (`MahutKol-MultiShapeRelational-v1`) PS4/gamepad/klavye ile 6 boyutlu mutlak `pd_joint_pos` (`GamepadKeyboardActionSource`). |
 | `test_ps4.py` | **Donanım ve gamepad test aracı.** Bağlı kontrolcünün eksen, tetik, D-pad ve buton değerlerini terminale anlık yazdırır. |
-| `record_demos.py` | **İnsan gösterimi (demonstration) kaydedici.** Teleoperasyonla robotu kontrol ederken kamera ve eklem yörüngelerini HDF5 formatında kaydeder. |
+| `record_demos.py` | **Basit HDF5 kaydedici.** Başarılı bölümlerin eylem (6) ve state (6) yörüngelerini HDF5'e ekler. VLA verisi için asıl yol `scripts/record_vla_demos.py`. |
 | `teleop_agent.py` | Kartezyen (End-Effector) uzayında hareket sağlayan Pygame tabanlı `TeleopController` sınıfı. |
-| `teleop_ps4.py` | 7-DoF eklem uzayı (`joint0`–`joint4`, kıskaç parmakları) delta pozisyon kontrolü sağlayan `MahutPS4Controller` sınıfı. |
+| `teleop_ps4.py` | Gamepad/klavye okuyucu `MahutPS4Controller` (7'li delta; `GamepadKeyboardActionSource` 6 boyutlu eyleme çevirir). |
 
 ---
 
@@ -24,23 +24,15 @@ Bağlantıyı doğrulamak ve tuşları görmek için:
 python Teleoperasyonlar/test_ps4.py
 ```
 
-### 2. Simülasyonda Robotu Teleoperasyon ile Sürme (Varsayılan: MahutKol-PickCube-v1)
+### 2. Simülasyonda Robotu Teleoperasyon ile Sürme (görev ortamı)
 ```bash
-python Teleoperasyonlar/teleop_maniskill_ps4.py
-```
-
-Diğer görev ortamlarında çalıştırmak için:
-```bash
-# PushCube ortamı:
-python Teleoperasyonlar/teleop_maniskill_ps4.py --env-id MahutKol-PushCube-v0
-
-# Minimal test ortamı:
-python Teleoperasyonlar/teleop_maniskill_ps4.py --env-id MahutKol-Minimal-v0
+python Teleoperasyonlar/teleop_maniskill_ps4.py [--seed 0]
 ```
 
 ### 3. Teleoperasyon ile İnsan Gösterimi (Demonstration) Toplama
 ```bash
-python Teleoperasyonlar/record_demos.py --env-id MahutKol-PickCube-v1 --device ps4 --episodes 50
+python Teleoperasyonlar/record_demos.py --output-path data/demos/raw_demos.h5 --num-episodes 50
+# VLA (LeRobot) verisi için: python scripts/record_vla_demos.py --device gamepad
 ```
 
 ---

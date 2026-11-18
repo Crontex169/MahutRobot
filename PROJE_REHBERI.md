@@ -83,9 +83,9 @@ MahutKol/
 │   ├── VR_TELEOPERATION_GUIDE.md # Meta Quest VR teleoperasyon kılavuzu
 │   └── GAMEPAD_TELEOP_GUIDE.md   # PS4 kolu tuş haritası
 ├── Teleoperasyonlar/         # 🎮 Teleoperasyon Kontrolcüleri ve Betikleri
-│   ├── teleop_maniskill_ps4.py # PS4 / Gamepad ile MahutKol teleoperasyon betiği
+│   ├── teleop_maniskill_ps4.py # PS4 / gamepad / klavye ile canlı görev teleopu (kayıt yok)
 │   ├── test_ps4.py           # Gamepad donanım test betiği
-│   ├── record_demos.py       # Teleoperasyonla gösterim kaydedici
+│   ├── record_demos.py       # Basit HDF5 gösterim kaydedici (VLA için record_vla_demos.py)
 │   ├── teleop_agent.py       # Kartezyen teleoperasyon kontrolcüsü
 │   ├── teleop_ps4.py         # 7-DoF eklem teleoperasyon kontrolcüsü
 │   └── README.md             # Teleoperasyon rehberi ve tuş haritası

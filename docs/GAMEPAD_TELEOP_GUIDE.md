@@ -46,7 +46,8 @@ Robotun uç organı (End-Effector) uzayda 6-DoF serbestlik derecesiyle sürülü
 Gösterim toplama betiğini doğrudan PS4 kolu seçeneğiyle başlatabilirsiniz:
 
 ```bash
-python src/mahut_kol/teleop/record_demos.py --device ps4 --num-episodes 50
+python scripts/record_vla_demos.py --device gamepad --command-source queue   # LeRobot VLA kaydı
+python Teleoperasyonlar/record_demos.py --num-episodes 50                    # basit HDF5 kaydı
 ```
 
 > **Not:** Eğer kol bağlı değilse veya pil biterse, sistem otomatik olarak klavye kontrolüne (`W/S/A/D/Q/E`) geri düşer.

@@ -1,199 +1,108 @@
 """
-İnsan Gösterimi (Demonstration) Kaydedici Şablonu.
+PS4 / gamepad / klavye ile HDF5 gösterim kaydedici (basit, LeRobot dışı).
 
-Bu betik:
-1. ManiSkill ortamını ("MahutKol-PickCube-v1") görsel render modunda açar.
-2. TeleopController üzerinden gelen aksiyonları ortama iletir (`env.step`).
-3. Her adımda:
-   - Gözlemleri (Kamera RGB/Depth görüntüleri, robot qpos/qvel)
-   - Uygulanan eylemleri (Actions)
-   - Ödül ve başarı durumunu
-   bir HDF5 veya trajectory dosyasına kaydeder.
-4. Başarısız olan bölümleri filtreleyip yalnızca başarılı olanları kaydetmenize olanak tanır.
+VLA veri kümesi için ASIL kayıt yolu `scripts/record_vla_demos.py`'dir (LeRobot v3, komut
+kuyruğu, kameralar). Bu betik yalnızca eylem/state yörüngelerini hızlı denemeler için HDF5'e yazar.
+
+Görev ortamı MahutKol-MultiShapeRelational-v1, `pd_joint_pos`. Girdi
+`GamepadKeyboardActionSource` ile 6 boyutlu mutlak hedefe çevrilir. Her adımda eylem (6) ve
+`robot_state` (6: 5 kol + kıskaç servo açısı) saklanır; yalnızca ortamın başarılı saydığı
+bölümler yazılır. Sıfırla (Üçgen/Options ya da R) bölümü iptal eder.
+
+Kullanım:
+  python3 Teleoperasyonlar/record_demos.py --output-path data/demos/raw_demos.h5 --num-episodes 5
 """
 
 import argparse
+import json
 import os
 import sys
 import time
-from typing import Dict, List, Optional
-import h5py
+
 import numpy as np
 
-# Proje ve src/ dizinlerini Python yoluna ekle
-_CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-_SRC_DIR = os.path.abspath(os.path.join(_CURRENT_DIR, "../src"))
-_ROOT_DIR = os.path.abspath(os.path.join(_CURRENT_DIR, ".."))
-if _SRC_DIR not in sys.path:
-    sys.path.insert(0, _SRC_DIR)
-if _ROOT_DIR not in sys.path:
-    sys.path.insert(0, _ROOT_DIR)
+_ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+for _p in (os.path.join(_ROOT_DIR, "src"), _ROOT_DIR):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
-try:
-    from Teleoperasyonlar.teleop_agent import TeleopController
-except ImportError:
-    from mahut_kol.teleop.teleop_agent import TeleopController
+ENV_ID = "MahutKol-MultiShapeRelational-v1"
 
 
-def record_demonstrations(
-    env_id: str,
-    output_path: str,
-    num_episodes: int = 50,
-    device_type: str = "gamepad",
-    control_freq: int = 20,
-):
-    """
-    Teleoperasyon döngüsünü çalıştırıp gösterimleri HDF5 formatında kaydeder.
-    """
-    # 1. Ortamın başlatılması
-    try:
-        import gymnasium as gym
-        if env_id.startswith("MahutKol"):
-            try:
-                import mahut_kol.envs
-            except Exception as e:
-                print(f"[UYARI] MahutKol ortamı yüklenirken hata oluştu: {e}")
-                print("[BİLGİ] Robot URDF dosyası henüz hazır değilse, önce standart ManiSkill ortamını test edebilirsiniz:")
-                print("       python src/mahut_kol/teleop/record_demos.py --env-id PickCube-v1 --device ps4\n")
-                raise e
+def record_demonstrations(output_path: str, num_episodes: int = 50, control_freq: int = 20, make_source=None,
+                          render: bool = True, max_steps: int = 600):
+    """Teleop döngüsü; başarılı bölümleri HDF5'e (episode_<i>/actions, states) yazar.
+    make_source(env) -> ActionSource (varsayılan: gamepad/klavye; testlerde scripted)."""
+    import gymnasium as gym
+    import h5py
+    import torch
 
-        # ManiSkill ortamını başlat (End-Effector delta pose kontrol moduyla)
-        print(f"[BİLGİ] '{env_id}' simülasyon ortamı başlatılıyor...")
-        env = gym.make(
-            env_id,
-            obs_mode="rgbd",
-            render_mode="human",
-            control_mode="pd_ee_delta_pose",
-        )
-    except ModuleNotFoundError as e:
-        print(f"[HATA] Gerekli kütüphane bulunamadı: {e}")
-        print("Lütfen sanal ortamınızın aktif olduğundan ve bağımlılıkların yüklendiğinden emin olun:")
-        print("  pip install -r requirements.txt")
-        return
-    except Exception as e:
-        print(f"[HATA] Ortam açılamadı: {e}")
-        return
+    import mahut_kol.envs  # noqa: F401
+    from mahut_kol.robots.mahut_robot import robot_state
+    from mahut_kol.teleop.action_source import GamepadKeyboardActionSource
 
-    # 2. Teleoperasyon Kontrolcüsünün Başlatılması
-    controller = TeleopController(device_type=device_type)
+    env = gym.make(ENV_ID, obs_mode="state_dict", control_mode="pd_joint_pos",
+                   render_mode="human" if render else None, max_episode_steps=max_steps)
+    u = env.unwrapped
+    src = make_source(env) if make_source else GamepadKeyboardActionSource()
+    qpos = lambda: u.agent.robot.get_qpos()[0].cpu().numpy()  # noqa: E731
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-
-    print("=" * 60)
-    print(f"🎬 GÖSTERİM KAYDI BAŞLATILDI: {output_path}")
-    print(f"🎮 Kontrol Cihazı : {device_type.upper()}")
-    print(f"🎯 Hedef Epizot   : {num_episodes}")
-    print(f"🔄 Kontrol Frekansı: {control_freq} Hz")
-    print("=" * 60)
-    print("İpuçları:")
-    print(" - Başarısız olursanız: PS4'te ÜÇGEN / OPTIONS tuşuna (veya klavyede 'R') basarak epizotu sıfırlayın.")
-    print(" - Başarılı olunca    : PS4'te X (CROSS) tuşuna basarak epizotu kaydedin.")
-    print(" - Tamamen çıkmak için: Terminalde Ctrl+C yapın.\n")
-
-    h5_file = h5py.File(output_path, "w")
-    saved_episodes = 0
     dt = 1.0 / control_freq
+    saved = 0
+    print(f"🎬 Kayıt: {output_path} | hedef {num_episodes} başarılı bölüm | {control_freq} Hz")
 
-    try:
-        while saved_episodes < num_episodes:
-            print(f"\n▶ Epizot {saved_episodes + 1}/{num_episodes} Başlatılıyor...")
-            obs, info = env.reset()
-
-            ep_actions: List[np.ndarray] = []
-            ep_states: List[np.ndarray] = []
-            ep_rewards: List[float] = []
-
-            step_count = 0
-            is_success = False
-            user_reset = False
-
-            while True:
-                step_start = time.time()
-
-                # Giriş cihazından aksiyon oku
-                raw_action = controller.get_action()
-
-                # Aksiyon boyutunu ortamın eylem uzayına uyarla
-                act_dim = env.action_space.shape[0]
-                if len(raw_action) >= act_dim:
-                    action = raw_action[:act_dim]
-                else:
-                    action = np.pad(raw_action, (0, act_dim - len(raw_action)))
-
-                # Simülasyon adımı
-                next_obs, reward, terminated, truncated, info = env.step(action)
-                env.render()
-
-                # Bölüm durumunu tampona ekle
-                ep_actions.append(action)
-                ep_rewards.append(float(reward))
-                if isinstance(obs, dict) and "state" in obs:
-                    ep_states.append(np.array(obs["state"]))
-                elif isinstance(obs, np.ndarray):
-                    ep_states.append(obs)
-
-                obs = next_obs
-                step_count += 1
-
-                # Başarı ve iptal kontrolleri
-                if info.get("success", False) or controller.is_save_requested():
-                    is_success = True
-                    print(f"  ✓ Görev Başarılı! (Adım: {step_count})")
-                    break
-
-                if controller.is_reset_requested():
-                    user_reset = True
-                    print("  ✗ Epizot kullanıcı tarafından iptal edildi/sıfırlandı.")
-                    break
-
-                if terminated or truncated:
-                    print("  - Epizot sınırına ulaşıldı.")
-                    break
-
-                # FPS senkronizasyonu
-                elapsed = time.time() - step_start
-                if elapsed < dt:
-                    time.sleep(dt - elapsed)
-
-            # Başarılı bölümü HDF5'e yaz
-            if is_success and not user_reset and len(ep_actions) > 5:
-                grp = h5_file.create_group(f"episode_{saved_episodes}")
-                grp.create_dataset("actions", data=np.array(ep_actions, dtype=np.float32))
-                grp.create_dataset("rewards", data=np.array(ep_rewards, dtype=np.float32))
-                if len(ep_states) > 0:
-                    grp.create_dataset("states", data=np.array(ep_states, dtype=np.float32))
-                grp.attrs["num_steps"] = len(ep_actions)
-                grp.attrs["success"] = True
-
-                saved_episodes += 1
-                h5_file.attrs["total_episodes"] = saved_episodes
-                h5_file.flush()
-                print(f"💾 Epizot {saved_episodes} başarıyla HDF5 dosyasına kaydedildi!")
-            else:
-                print("  ⟳ Bu epizot kaydedilmedi, yeniden deneniyor.")
-
-    except KeyboardInterrupt:
-        print("\n[ÇIKIŞ] Kullanıcı gösterim kaydını durdurdu.")
-    finally:
-        h5_file.close()
-        controller.close()
-        env.close()
-        print(f"\n[BİLGİ] Toplam {saved_episodes} başarılı epizot '{output_path}' konumuna kaydedildi.")
+    with h5py.File(output_path, "a") as h5:
+        saved = int(h5.attrs.get("total_episodes", 0))
+        try:
+            while saved < num_episodes:
+                env.reset()
+                src.reset(qpos())
+                print(f"\n▶ Bölüm {saved + 1}/{num_episodes}: {u.get_command()}")
+                actions, states, success, aborted = [], [], False, False
+                while True:
+                    t0 = time.time()
+                    if "reset" in src.poll_events():
+                        aborted = True
+                        break
+                    q = qpos()
+                    a = np.asarray(src.act(q), dtype=np.float32)
+                    states.append(robot_state(q).astype(np.float32))
+                    actions.append(a)
+                    _, _, terminated, truncated, info = env.step(torch.as_tensor(a))
+                    if render:
+                        env.render()
+                    if bool(info["success"].item()):
+                        success = True
+                        break
+                    if terminated.item() or truncated.item():
+                        break
+                    if render:
+                        time.sleep(max(0.0, dt - (time.time() - t0)))
+                if not success or len(actions) <= 5:
+                    print("  ⟳ kaydedilmedi" + (" (iptal)" if aborted else ""))
+                    continue
+                g = h5.create_group(f"episode_{saved}")
+                g.create_dataset("actions", data=np.stack(actions))
+                g.create_dataset("states", data=np.stack(states))
+                g.attrs["num_steps"] = len(actions)
+                g.attrs["command"] = json.dumps(u.get_command())
+                saved += 1
+                h5.attrs["total_episodes"] = saved
+                h5.flush()
+                print(f"💾 Bölüm {saved} kaydedildi ({len(actions)} adım)")
+        except KeyboardInterrupt:
+            print("\n[ÇIKIŞ] Kullanıcı durdurdu.")
+        finally:
+            src.close()
+            env.close()
+    print(f"[BİLGİ] Toplam {saved} başarılı bölüm: {output_path}")
+    return saved
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="ManiSkill Gösterim Kaydedici")
-    parser.add_argument("--env-id", type=str, default="MahutKol-PickCube-v1", help="Ortam kimliği")
-    parser.add_argument("--output-path", type=str, default="data/demos/raw_demos.h5", help="Kayıt H5 yolu")
-    parser.add_argument("--num-episodes", type=int, default=50, help="Toplanacak başarılı bölüm sayısı")
-    parser.add_argument("--device", type=str, default="gamepad", choices=["keyboard", "gamepad", "ps4", "spacemouse", "vr"])
-    parser.add_argument("--freq", type=int, default=20, help="Kontrol frekansı (Hz)")
+    parser = argparse.ArgumentParser(description="MahutKol HDF5 gösterim kaydedici (PS4/gamepad/klavye)")
+    parser.add_argument("--output-path", default="data/demos/raw_demos.h5", help="HDF5 yolu (varsa sonuna eklenir)")
+    parser.add_argument("--num-episodes", type=int, default=50, help="toplam başarılı bölüm hedefi")
+    parser.add_argument("--freq", type=int, default=20, help="kontrol frekansı (Hz)")
     args = parser.parse_args()
-
-    record_demonstrations(
-        env_id=args.env_id,
-        output_path=args.output_path,
-        num_episodes=args.num_episodes,
-        device_type=args.device,
-        control_freq=args.freq,
-    )
-
+    record_demonstrations(args.output_path, args.num_episodes, args.freq)
