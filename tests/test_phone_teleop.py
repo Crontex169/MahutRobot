@@ -124,6 +124,14 @@ class TestMapper(unittest.TestCase):
         q = self._run((0, -0.5, 0), n=60)  # aşağı doğru zorla
         self.assertGreaterEqual(finger_min_z(self.K, q), 0.0)
 
+    def test_overshoot_is_discarded(self):
+        """Sınır/erişim dışına itilen fazlalık birikmez: geri çekince kol hemen geri döner."""
+        q = self._run((0, 0, 0.60), n=80)  # +x yönünde 60 cm: x sınırının (0.30) çok ötesi
+        x_far = self.K.fk(q)[0][0]
+        for _ in range(20):  # telefon 5 cm geri (hâlâ 55 cm ötede)
+            q = self.m.step(True, False, (0, 0, 0.55), (0, 0, 0))
+        self.assertLess(self.K.fk(q)[0][0], x_far - 0.03)
+
     def test_can_lift_after_touching_table(self):
         """Masaya dayanıp kalan kol (gerçek denemedeki kilitlenme) yukarı çıkabilmeli."""
         from mahut_kol.robots.kinematics import finger_min_z

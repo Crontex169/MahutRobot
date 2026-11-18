@@ -94,8 +94,9 @@ CONFIG: Dict[str, Any] = {
     "max_step_pos": 0.02,          # m / kontrol adımı (20 Hz -> 0.4 m/s)
     "max_step_joint": 0.15,        # rad / kontrol adımı
     # TCP çalışma hacmi (dünya, m). Masa üstü çalışma alanını (WORKSPACE_*) kaldırma/yaklaşma
-    # payıyla kapsar.
-    "workspace_limits": {"x": (0.02, 0.30), "y": (-0.26, 0.22), "z": (0.02, 0.30)},
+    # payıyla kapsar. x >= 0.08: daha yakında kol tabanın üstüne katlanıyor ve bilek kamerası
+    # geriye bakıyordu (operatöre yönler ters geliyordu).
+    "workspace_limits": {"x": (0.08, 0.30), "y": (-0.22, 0.22), "z": (0.02, 0.30)},
     "tilt_limits_deg": (25.0, 85.0),
     "ik_iterations": 30,
     "packet_timeout_s": 0.5,
@@ -459,7 +460,10 @@ class PhoneTeleopMapper:
         else:
             cand = self.anchor_pos + phone_to_world_delta(delta_pos, c)
         lim = c["workspace_limits"]
-        cand = np.array([np.clip(cand[i], *lim[k]) for i, k in enumerate("xyz")])
+        clipped = np.array([np.clip(cand[i], *lim[k]) for i, k in enumerate("xyz")])
+        # Kayan debriyaj: sınır dışındaki fazlalık birikmesin, geri dönüş anında başlasın
+        self.anchor_pos += clipped - cand
+        cand = clipped
         step = cand - self.smooth_pos
         n = np.linalg.norm(step)
         if n > c["max_step_pos"]:
@@ -487,6 +491,10 @@ class PhoneTeleopMapper:
                 q, ok = q2, True
         if not ok:
             self.ik_fails += 1
+            # Erişilemeyen hedef: fazlalığı at (kayan debriyaj), hedefi ulaşılan noktaya çek
+            reached = self.K.fk(q)[0]
+            self.anchor_pos += reached - new_pos
+            new_pos = reached
         # Eklem adım sınırı; parmaklar masaya girecekse adımı küçült (en fazla 3 kez yarıla)
         # Eklem adım sınırı: tüm adımı ORANTILI küçült. Eklem eklem kırpmak hareketin yönünü
         # bozuyordu (ör. masadan yukarı kalkarken bilek önce aşağı dönüp parmağı masaya sokuyordu).
