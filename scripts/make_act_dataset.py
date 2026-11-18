@@ -9,7 +9,7 @@ Neden türev veri kümesi (eğitim sarmalayıcısı / lerobot yaması yerine):
   * lerobot-train'i sarmalamak `make_dataset`/`LeRobotDataset.__getitem__` üzerinde monkeypatch
     gerektirirdi (lerobot sürümüne kırılgan). Türev küme ise standart `lerobot-train` ile
     değişiklik OLMADAN eğitilir; sürümlü ad kaynağın hangi anında türetildiğini belgeler.
-  * Maliyet: yalnızca veri parquet dosyaları (7+7+5+17 sayı/kare) yeniden yazılır; yalnızca videos/
+  * Maliyet: yalnızca veri parquet dosyaları (6+6+5+17 sayı/kare) yeniden yazılır; yalnızca videos/
     sabit bağlantıyla (aynı disk) paylaşılır, değilse kopyalanır; meta ve sidecar dosyaları KOPYALANIR.
     Kaynak asla değiştirilmez.
 

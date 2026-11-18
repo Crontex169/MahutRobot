@@ -27,6 +27,7 @@ paralel olduğundan roll hedefi nullspace yerine doğrudan eklem değeri olarak 
 
 from __future__ import annotations
 
+import itertools
 import os
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -39,7 +40,7 @@ _DEFAULT_URDF = os.path.abspath(
 )
 
 # Robotun dünya çerçevesindeki taban pozu (ortamların _load_agent'ında kullanılan değer).
-ROBOT_BASE_POS = np.array([0.0, 0.0, 0.0558])
+ROBOT_BASE_POS = np.array([0.0, 0.0, 0.0])  # taban masa üstünde, joint0 ekseni orijinde
 
 ARM_JOINTS = ("joint0", "joint1", "joint2", "joint3", "joint4")
 TCP_LINK = "link_gripper_center"
@@ -283,16 +284,13 @@ class MahutKinematics:
         return float(np.arccos(np.clip(-self.approach_of(R)[2], -1.0, 1.0)))
 
 
-# Başlangıç duruşları: joint1-3 eklem aralıklarını kaba bir ızgarayla kaplar (yerel minimumlara
-# karşı çoklu başlangıç). İlk eleman tipik "dirsek yukarı" duruşudur.
+# Başlangıç duruşları: joint1-3 eklem aralıklarını (±90°) kaba bir ızgarayla kaplar (yerel
+# minimumlara karşı çoklu başlangıç).
 DEFAULT_IK_SEEDS = tuple(
-    [(0.0, 1.0, 0.5, -1.0, 0.0)]
-    + [
-        (0.0, j1, j2, j3, 0.0)
-        for j1 in (0.4, 1.0, 1.6, 2.2)
-        for j2 in (-0.6, 0.2, 1.0)
-        for j3 in (-0.5, -1.4, -2.3)
-    ]
+    (0.0, j1, j2, j3, 0.0)
+    for j1 in (-0.9, -0.2, 0.5, 1.2)
+    for j2 in (-1.2, -0.4, 0.4, 1.2)
+    for j3 in (-1.2, -0.4, 0.4, 1.2)
 )
 
 DOWN = np.array([0.0, 0.0, -1.0])
@@ -315,11 +313,19 @@ def get_kinematics() -> MahutKinematics:
 # Nesne merkezinin TCP'den parmak yönünde uzaklığı. Pedler TCP'nin 0.05 m ötesine uzanır;
 # 0.035 m'de 35 mm nesnenin ~%80'i pedler arasında kalır ve eğik yaklaşmada parmak uçları
 # masadan ~5-8 mm yukarıda kalır.
-GRASP_DEPTH = 0.035
+GRASP_DEPTH = 0.0
 # Kavrama eğimleri (yaklaşma yönünün düşeyle açısı, derece). Tabana yakın noktalar 45°,
 # uzak noktalar 55° ile erişilebilir; 50° ortada en geniş alanı kapsar (scripts/compute_workspace.py).
-GRASP_TILTS_DEG = (45, 50, 55)
+GRASP_TILTS_DEG = (40, 45, 50, 55)
 TABLE_CLEARANCE = 0.002
+# joint4 = 0'da parmaklar kol düzleminde açılır; ±π/2'de yatay. Kıskaç 180° simetrik olduğundan
+# gereken her parmak yönü [-π/2, π/2] içinde bir roll ile sağlanır (bkz. wrap_roll).
+GRASP_ROLL = np.pi / 2
+
+
+def wrap_roll(phi: float) -> float:
+    """Roll açısını kıskacın 180° simetrisiyle [-π/2, π/2] aralığına katlar."""
+    return float((phi + np.pi / 2) % np.pi - np.pi / 2)
 
 
 _FINGER_HULLS: Optional[List[Tuple[np.ndarray, np.ndarray]]] = None
@@ -343,12 +349,17 @@ def _finger_hulls(urdf_path: str = _DEFAULT_URDF) -> List[Tuple[np.ndarray, np.n
         link = root.find(f"link[@name='{j.child}']")
         for col in link.findall("collision"):
             mesh = col.find("geometry/mesh")
+            box = col.find("geometry/box")
             o = col.find("origin")
             xyz = np.array([float(v) for v in o.get("xyz", "0 0 0").split()])
             rpy = [float(v) for v in o.get("rpy", "0 0 0").split()]
-            scale = np.array([float(v) for v in mesh.get("scale", "1 1 1").split()])
-            path = os.path.normpath(os.path.join(os.path.dirname(urdf_path), mesh.get("filename")))
-            v = trimesh.load(path, force="mesh").convex_hull.vertices * scale
+            if box is not None:
+                half = np.array([float(v) for v in box.get("size").split()]) / 2
+                v = np.array(list(itertools.product(*[(-h, h) for h in half])))
+            else:
+                scale = np.array([float(v) for v in mesh.get("scale", "1 1 1").split()])
+                path = os.path.normpath(os.path.join(os.path.dirname(urdf_path), mesh.get("filename")))
+                v = trimesh.load(path, force="mesh").convex_hull.vertices * scale
             v_link = v @ _rpy_to_mat(rpy).T + xyz
             v_l4 = v_link @ j.origin_R.T + j.origin_p
             out.append((v_l4, j.origin_R @ (j.axis / np.linalg.norm(j.axis))))
@@ -386,6 +397,7 @@ def solve_grasp_ik(
     Başarı: IK yakınsadı ve parmaklar masaya girmiyor.
     """
     K = K or get_kinematics()
+    roll = GRASP_ROLL if roll is None else roll
     G = np.asarray(grasp_point, dtype=np.float64)
     tcp = G.copy()
     q = None if q_init is None else np.asarray(q_init, dtype=np.float64)

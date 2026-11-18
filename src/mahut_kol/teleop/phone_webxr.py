@@ -35,9 +35,6 @@ Güvenlik (orijinaldeki gibi): çalışma hacmi kırpma, adım sınırlama, EMA 
 güncelleme reddedilir; eklem başına adım sınırı vardır.
 
 IK seçimi: `mahut_kol.robots.kinematics` (URDF'ten saf numpy DLS, eğim kısıtlı). Karşılaştırma:
-- `pick_cube_task.py` fk/ik: MuJoCo XML modelini kullanır (simülasyondaki URDF değil), yalnızca
-  sabit -45° yaklaşma ve joint4 = 0 için; her çağrıda 25^3 ızgara + Newton (~yüzlerce ms) ->
-  20 Hz teleop için yavaş ve esnek değil.
 - `Side_project/ik_solver.py` nullspace'li DLS: hızlı ve artımlı, fakat MuJoCo'ya bağlı ve bilek
   pitch'ini eklem hedefi olarak nullspace'te izler; MahutKol'da konum için 4 eklem kullanılınca
   nullspace 1 boyutlu kalır ve yaklaşma açısı kontrolü zayıflar.
@@ -66,7 +63,7 @@ from mahut_kol.teleop.action_source import (
     ARM_DOF,
     ActionSource,
     clip_action,
-    gripper_open_ratio_to_finger,
+    gripper_open_ratio_to_angle,
 )
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -96,8 +93,8 @@ CONFIG: Dict[str, Any] = {
     "ema_alpha_rot": 0.35,
     "max_step_pos": 0.02,          # m / kontrol adımı (20 Hz -> 0.4 m/s)
     "max_step_joint": 0.15,        # rad / kontrol adımı
-    # TCP çalışma hacmi (dünya, m). Masa üstü çalışma alanını (x 0.10-0.22, y -0.16..0.12)
-    # kaldırma/yaklaşma payıyla kapsar.
+    # TCP çalışma hacmi (dünya, m). Masa üstü çalışma alanını (WORKSPACE_*) kaldırma/yaklaşma
+    # payıyla kapsar.
     "workspace_limits": {"x": (0.02, 0.30), "y": (-0.26, 0.22), "z": (0.02, 0.30)},
     "tilt_limits_deg": (25.0, 85.0),
     "ik_iterations": 30,
@@ -566,8 +563,7 @@ class PhoneActionSource(ActionSource):
         if reset:
             self._events.add("reset")
         arm = self.mapper.step(clutch, pressed, dpos, deul)
-        finger = gripper_open_ratio_to_finger(grip)
-        self.target = clip_action(np.r_[arm, finger, finger])
+        self.target = clip_action(np.r_[arm, gripper_open_ratio_to_angle(grip)])
         self._last_qpos = np.asarray(qpos, dtype=np.float64).copy()
         return self.target.copy()
 

@@ -3,7 +3,7 @@
 Eğitilmiş LeRobot politikasını MahutKol-MultiShapeRelational-v1'de kapalı çevrim değerlendirir.
 
 Kayıt şemasıyla aynı girdiler: observation.images.front + observation.images.wrist (224x224),
-observation.state = 7 boyutlu qpos (5 kol + 2 parmak), task = İngilizce talimat (kayıttaki
+observation.state = 6 boyutlu robot_state (5 kol + kıskaç servo açısı), task = İngilizce talimat (kayıttaki
 şablonlar). Komutlar reset(options) ile komut JSON'undan verilir.
 
 Çıktı (terminal + --out JSON):
@@ -50,6 +50,7 @@ from mahut_kol.envs.multi_shape_task import (  # noqa: E402
 )
 from mahut_kol.recording import IMAGE_KEYS  # noqa: E402
 from mahut_kol.recording.session import make_env  # noqa: E402
+from mahut_kol.robots.mahut_robot import robot_state  # noqa: E402
 
 
 
@@ -112,7 +113,7 @@ class LeRobotPolicy:
             key: obs["sensor_data"][cam]["rgb"].permute(0, 3, 1, 2).float() / 255.0
             for key, cam in IMAGE_KEYS.items()
         }
-        batch["observation.state"] = obs["agent"]["qpos"][:, :7].float()  # 5 kol + 2 parmak
+        batch["observation.state"] = robot_state(obs["agent"]["qpos"]).float()  # 5 kol + kıskaç
         batch["task"] = [self.instruction]
         if self.uses_env_state:
             batch[ENV_STATE_KEY] = self.onehot.clone()

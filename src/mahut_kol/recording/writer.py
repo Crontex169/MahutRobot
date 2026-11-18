@@ -31,10 +31,11 @@ from mahut_kol.envs.multi_shape_task import (
     FRONT_CAMERA_NAME,
     WRIST_CAMERA_NAME,
 )
+from mahut_kol.robots.mahut_robot import ACTION_DIM, STATE_NAMES, robot_state
 
 FPS = 20
 ROBOT_TYPE = "mahut_kol"
-JOINT_NAMES = ["joint0", "joint1", "joint2", "joint3", "joint4", "finger_left", "finger_right"]
+JOINT_NAMES = STATE_NAMES  # 5 kol eklemi (rad) + kıskaç servo açısı (rad)
 DEFAULT_ROOT = Path(os.path.expanduser("~/vla_data/mahut_multishape"))
 DEFAULT_REPO_ID = "local/mahut_multishape"
 SIDECAR_NAME = "mahut_episodes.jsonl"
@@ -56,8 +57,8 @@ def vla_features() -> Dict[str, Dict[str, Any]]:
     }
     return {
         **{k: dict(img) for k in IMAGE_KEYS},
-        "observation.state": {"dtype": "float32", "shape": (7,), "names": list(JOINT_NAMES)},
-        "action": {"dtype": "float32", "shape": (7,), "names": list(JOINT_NAMES)},
+        "observation.state": {"dtype": "float32", "shape": (ACTION_DIM,), "names": list(JOINT_NAMES)},
+        "action": {"dtype": "float32", "shape": (ACTION_DIM,), "names": list(JOINT_NAMES)},
         # 5 sayısal komut slotu (manipüle renk/şekil, referans renk/şekil, yön). "observation."
         # öneki yok: politikalar varsayılan olarak bunu girdi saymaz; isteğe bağlı kullanılır.
         SLOTS_KEY: {"dtype": "int64", "shape": (5,), "names": list(SLOT_NAMES)},
@@ -73,8 +74,8 @@ def build_frame(obs: Mapping[str, Any], action, instruction: str, cmd: Command) 
     frame: Dict[str, Any] = {}
     for key, cam in IMAGE_KEYS.items():
         frame[key] = _np(obs["sensor_data"][cam]["rgb"])[0].astype(np.uint8)
-    frame["observation.state"] = _np(obs["agent"]["qpos"])[0].astype(np.float32)
-    frame["action"] = np.asarray(_np(action), dtype=np.float32).reshape(7)
+    frame["observation.state"] = robot_state(_np(obs["agent"]["qpos"])[0]).astype(np.float32)
+    frame["action"] = np.asarray(_np(action), dtype=np.float32).reshape(ACTION_DIM)
     frame[SLOTS_KEY] = to_slots(cmd)
     frame["task"] = instruction
     return frame

@@ -38,6 +38,8 @@ from mani_skill.utils.scene_builder.table import TableSceneBuilder
 from mani_skill.utils.structs import Pose
 from mani_skill.utils.structs.actor import Actor
 
+from mahut_kol.robots.kinematics import ROBOT_BASE_POS
+from mahut_kol.robots.mahut_robot import robot_state
 from mahut_kol.envs.shape_objects import (
     DEFAULT_PARKING_Z,
     OBJECT_COLORS,
@@ -71,9 +73,10 @@ SUCCESS_XY_TOLERANCE = 0.025      # metre
 SUCCESS_Z_TOLERANCE = 0.012       # metre (TOP'ta referansın üstünde, diğerlerinde masada)
 UPRIGHT_COS_THRESHOLD = float(np.cos(np.radians(20.0)))  # dik durma eşiği
 
-# "Bırakıldı" tanımı: parmaklar 35 mm nesneye temas noktasından (~0.0245) daha açık ve temas yok.
-# Parmak eklemi: 0.0 = tam açık, 0.042 = tam kapalı.
-GRIPPER_RELEASED_QPOS = 0.022
+# "Bırakıldı" tanımı: kıskaç 35 mm nesneye temas açısından daha açık ve temas yok. Kıskaç servo
+# açısı 0 = açık (parmak arası 38 mm), π = kapalı; 35 mm nesneye temas ~0.26 rad (parmak 1.5 mm).
+# 0.15 rad'da parmak arası ~36.3 mm.
+GRIPPER_RELEASED_RAD = 0.15
 # "Durağan" tanımı: nesne hızları eşik altında, ardışık SETTLE_STEPS kontrol adımı (20 Hz).
 STATIC_LIN_VEL = 0.02             # m/s
 STATIC_ANG_VEL = 0.5              # rad/s
@@ -88,26 +91,21 @@ MIN_PAIRWISE_DISTANCE = 0.065     # metre
 
 # MahutKol çalışma alanı (nesne merkezleri ve hedefler için, metre).
 # FK/IK ile örneklenerek hesaplandı (scripts/compute_workspace.py): kıskaç düşeyden
-# 45/50/55° eğik yaklaşırken nesne kavrama (z=0.022), referans üstüne bırakma (+0.038) ve
-# taşıma (+0.065) yüksekliklerinin üçü de IK ile çözülebilen ve parmakların masaya girmediği
-# hücrelerin içinden güvenli bir dikdörtgen seçildi. MahutKol tam aşağı bakarak yalnızca
-# tabana çok yakın ve alçakta erişebildiği için eğik kavrama kullanılır. Kol düzlemi tabandan
-# yanal ~-4.4 cm kaçık olduğundan alan y'de simetrik değildir. Eski SO-100 alanı:
-# x 0.12-0.22, y -0.10..0.10.
+# 40/45/50/55° eğik, parmaklar yatay (joint4 = π/2) yaklaşırken nesne kavrama (z=0.022),
+# referans üstüne bırakma (+0.038) ve taşıma (+0.065) yüksekliklerinin üçü de IK ile
+# çözülebilen ve parmakların masaya girmediği hücrelerden güvenli bir dikdörtgen seçildi.
+# Bilek (joint4 -> TCP) 18.5 cm: masada dikey kavrama yok, eğik kavrama kullanılır. Kol
+# düzlemi joint0 ekseninden geçer, alan y'de simetrik. Taban yarıçapı ~7.4 cm.
 WORKSPACE_X_MIN = 0.10
 WORKSPACE_X_MAX = 0.22
-WORKSPACE_Y_MIN = -0.16
-WORKSPACE_Y_MAX = 0.12
+WORKSPACE_Y_MIN = -0.14
+WORKSPACE_Y_MAX = 0.14
 
-# Bölüm başında kol (joint0..4, finger_left, finger_right): TCP ≈ (0.14, -0.02, 0.11), kıskaç
-# düşeyden 55° eğik, parmaklar tam açık (0.0 = açık, 0.042 = kapalı). Kavrama duruşlarıyla aynı
-# IK dalında (dirsek yukarı) olduğu için ilk harekette kol savrulmaz. IK ile hesaplanıp yuvarlandı.
-ROBOT_REST_QPOS = [0.16, 0.86, 0.33, -1.52, 0.0, 0.0, 0.0]
+# Bölüm başında kol (robot qpos: joint0..4, finger_left, finger_right): TCP ≈ (0.14, 0, 0.11),
+# kıskaç düşeyden 55° eğik, parmaklar yatay (joint4 = π/2) ve tam açık (parmak 0 m = açık,
+# 0.018 m = kapalı). IK ile hesaplanıp yuvarlandı.
+ROBOT_REST_QPOS = [0.0, 0.92, 0.06, -0.25, 1.57, 0.0, 0.0]
 
-# Kol düzlemi geometrisi (URDF'ten): joint0 ekseni dünyada (-0.0037, -0.0323)'te, kol düzlemi bu
-# eksenden yanal -0.0114 m kaçık. Bir (x, y) noktasına uzanırken kolun yatay yönü arm_heading().
-ARM_YAW_PIVOT_XY = (-0.00365706, -0.0322927)
-ARM_PLANE_LATERAL_OFFSET = -0.0114
 
 # Nesnelerin başlangıç yaw'ı: kavranabilir yönelim + gürültü. Küp 90°, prizma 120° simetrik;
 # kolun o noktadaki yönüne hizalanır (parmak ekseni kol düzlemine diktir). Silindir serbest.
@@ -124,9 +122,9 @@ CAMERA_WIDTH = 224
 CAMERA_HEIGHT = 224
 # Sabit kamera: operatör tarafında (x > 0), robota (-x) bakar -> görüntü sağı = +y = RIGHT.
 FRONT_CAMERA_NAME = "front"
-FRONT_CAMERA_EYE = (0.46, -0.03, 0.36)
-FRONT_CAMERA_TARGET = (0.15, -0.03, 0.02)
-FRONT_CAMERA_FOV_DEG = 52.0
+FRONT_CAMERA_EYE = (0.50, 0.0, 0.42)
+FRONT_CAMERA_TARGET = (0.12, 0.0, 0.06)
+FRONT_CAMERA_FOV_DEG = 55.0
 # Bilek kamerası: link_gripper_center'a (TCP) monte, kıskacın üst tarafında, parmak uçlarına bakar.
 # Poz TCP çerçevesinde (x = parmak yönü, z = kıskacın üst tarafı). Kamera ekseni: +x ileri, +z yukarı.
 WRIST_CAMERA_NAME = "wrist"
@@ -231,9 +229,8 @@ def compute_all_relational_target_positions(
 
 def arm_heading(x: float, y: float) -> float:
     """Kolun (x, y) noktasına uzanırken joint0 yönü (radyan, dünya z etrafında)."""
-    dx, dy = x - ARM_YAW_PIVOT_XY[0], y - ARM_YAW_PIVOT_XY[1]
-    r = max(float(np.hypot(dx, dy)), abs(ARM_PLANE_LATERAL_OFFSET) + 1e-6)
-    return float(np.arctan2(dy, dx) - np.arcsin(ARM_PLANE_LATERAL_OFFSET / r))
+    # Kol düzlemi joint0 ekseninden geçer (yanal kaçıklık yok).
+    return float(np.arctan2(y - ROBOT_BASE_POS[1], x - ROBOT_BASE_POS[0]))
 
 
 def _spawn_yaw_symmetry(shape: str) -> Optional[float]:
@@ -308,7 +305,7 @@ class MultiShapeRelationalTask(BaseEnv):
     # Sahne
     # ------------------------------------------------------------------
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[0, 0, 0.0558]))
+        super()._load_agent(options, sapien.Pose(p=ROBOT_BASE_POS.tolist()))
 
     def _load_scene(self, options: dict):
         self.table_scene = TableSceneBuilder(self)
@@ -607,9 +604,9 @@ class MultiShapeRelationalTask(BaseEnv):
         dz = (p[:, 2] - target[:, 2]).abs()
         upright = self._is_upright(manip, object_shape(self.manipulated_object_id))
         is_placed = (xy_dist < SUCCESS_XY_TOLERANCE) & (dz < SUCCESS_Z_TOLERANCE) & upright
-        finger = self.agent.robot.get_qpos()[:, 5:7].mean(dim=1)
+        gripper = robot_state(self.agent.robot.get_qpos())[:, -1]
         is_grasped = self.agent.is_grasping(manip)
-        is_released = (finger < GRIPPER_RELEASED_QPOS) & ~is_grasped
+        is_released = (gripper < GRIPPER_RELEASED_RAD) & ~is_grasped
         static_steps = (
             self._static_steps
             if self._static_steps is not None

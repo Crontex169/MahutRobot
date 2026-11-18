@@ -5,8 +5,9 @@ Kayıt betiği (`scripts/record_vla_demos.py`) yalnızca `ActionSource` ile konu
 (WebXR), PS4 gamepad ya da klavye aynı betiğe takılır.
 
 Sözleşme:
-- Eylem her zaman 7 boyutlu mutlak `pd_joint_pos` hedefidir:
-  [joint0..joint4 (rad), finger_left, finger_right (m)]. Parmak: 0.0 = açık, 0.042 = kapalı.
+- Eylem her zaman 6 boyutlu mutlak `pd_joint_pos` hedefidir:
+  [joint0..joint4 (rad), kıskaç servo açısı (rad)]. Kıskaç: 0 = açık, π = kapalı.
+- `qpos` robotun 7 boyutlu eklem konumudur (5 kol + 2 parmak, m); `robot_state` ile 6'ya çevrilir.
 - `reset(qpos)` bölüm başında ölçülen eklem konumuyla çağrılır; kaynak hedefini buna eşitler.
 - `act(qpos)` her kontrol adımında (20 Hz) çağrılır ve sıradaki hedefi döner.
 - `poll_events()` cihazdan gelen olayları ("reset" gibi) döner ve temizler.
@@ -20,25 +21,20 @@ from typing import Optional, Sequence, Set
 
 import numpy as np
 
-ARM_DOF = 5
-FINGER_OPEN = 0.0
-FINGER_CLOSED = 0.042
-# MahutKol URDF eklem sınırları (joint0..4)
-ARM_Q_MIN = np.array([-1.5708, 0.0, -1.0, -3.141593, -1.570796])
-ARM_Q_MAX = np.array([1.5708, 3.14159, 1.5708, 0.0, 1.570796])
+from mahut_kol.robots.mahut_robot import ARM_DOF, ARM_LIMIT, GRIPPER_CLOSED, GRIPPER_OPEN, robot_state
 
 
 def clip_action(action: Sequence[float]) -> np.ndarray:
     a = np.asarray(action, dtype=np.float32).copy()
-    a[:ARM_DOF] = np.clip(a[:ARM_DOF], ARM_Q_MIN, ARM_Q_MAX)
-    a[ARM_DOF:] = np.clip(a[ARM_DOF:], FINGER_OPEN, FINGER_CLOSED)
+    a[:ARM_DOF] = np.clip(a[:ARM_DOF], -ARM_LIMIT, ARM_LIMIT)
+    a[ARM_DOF:] = np.clip(a[ARM_DOF:], GRIPPER_OPEN, GRIPPER_CLOSED)
     return a
 
 
-def gripper_open_ratio_to_finger(ratio: float) -> float:
-    """Kıskaç açıklık oranı (0 = kapalı, 1 = tam açık; telefon kaydırıcısı) -> parmak eklemi."""
+def gripper_open_ratio_to_angle(ratio: float) -> float:
+    """Kıskaç açıklık oranı (0 = kapalı, 1 = tam açık; telefon kaydırıcısı) -> servo açısı (rad)."""
     r = float(np.clip(ratio, 0.0, 1.0))
-    return FINGER_CLOSED * (1.0 - r)
+    return GRIPPER_CLOSED * (1.0 - r)
 
 
 class ActionSource(abc.ABC):
@@ -50,11 +46,11 @@ class ActionSource(abc.ABC):
         self.target: Optional[np.ndarray] = None
 
     def reset(self, qpos: Sequence[float]) -> None:
-        self.target = clip_action(np.asarray(qpos, dtype=np.float32)[:7])
+        self.target = clip_action(robot_state(np.asarray(qpos, dtype=np.float32)))
 
     @abc.abstractmethod
     def act(self, qpos: Sequence[float]) -> np.ndarray:
-        """Sıradaki 7 boyutlu pd_joint_pos hedefi."""
+        """Sıradaki ACTION_DIM (6) boyutlu pd_joint_pos hedefi."""
 
     def poll_events(self) -> Set[str]:
         return set()
@@ -88,7 +84,7 @@ class GamepadKeyboardActionSource(ActionSource):
 
     name = "gamepad"
 
-    def __init__(self, controller=None, arm_step: float = 0.06, gripper_step: float = 0.004):
+    def __init__(self, controller=None, arm_step: float = 0.06, gripper_step: float = 0.3):
         super().__init__()
         if controller is None:
             from mahut_kol.utils.teleop_ps4 import MahutPS4Controller
@@ -96,7 +92,7 @@ class GamepadKeyboardActionSource(ActionSource):
             controller = MahutPS4Controller()
         self.controller = controller
         self.arm_step = arm_step  # rad / adım (tam eğik çubukta, arm_scale ile çarpılır)
-        self.gripper_step = gripper_step
+        self.gripper_step = gripper_step  # rad / adım
 
     def act(self, qpos: Sequence[float]) -> np.ndarray:
         if self.target is None:
@@ -106,7 +102,7 @@ class GamepadKeyboardActionSource(ActionSource):
         gscale = max(getattr(self.controller, "gripper_scale", 1.0), 1e-6)
         t = self.target.copy()
         t[:ARM_DOF] += delta[:ARM_DOF] / scale * self.arm_step
-        t[ARM_DOF:] += delta[ARM_DOF:] / gscale * self.gripper_step
+        t[ARM_DOF] += delta[ARM_DOF] / gscale * self.gripper_step  # denetleyici 7'li verir, ilk kıskaç değeri
         self.target = clip_action(t)
         return self.target.copy()
 

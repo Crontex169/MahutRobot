@@ -91,6 +91,29 @@ def ik_grid(tilts, xs, ys):
     return grids
 
 
+def spawn_check(n: int) -> float:
+    """Ortamın spawn ettiği n sahnede scripted planın (alma + taşıma + bırakma IK'sı) kurulma oranı."""
+    import collections
+
+    import gymnasium as gym
+
+    import mahut_kol.envs  # noqa: F401
+    from mahut_kol.envs.scripted_policy import MultiShapeScriptedPolicy
+
+    env = gym.make("MahutKol-MultiShapeRelational-v1", obs_mode="state_dict", control_mode="pd_joint_pos")
+    errs = collections.Counter()
+    for seed in range(n):
+        env.reset(seed=seed)
+        u = env.unwrapped
+        pol = MultiShapeScriptedPolicy(u)
+        pol.reset(u.agent.robot.get_qpos()[0].numpy())
+        errs[pol.plan_error or "ok"] += 1
+    env.close()
+    rate = errs["ok"] / n
+    print(f"4) Spawn erişilebilirliği: {errs['ok']}/{n} = {rate:.1%}  (hatalar: {dict(errs)})")
+    return rate
+
+
 def print_grid(title, g, xs, ys):
     print(f"{title} (erişilebilir hücre: {int(g.sum())})", flush=True)
     print("       y:" + "".join(f"{y * 100:5.0f}" for y in ys))
@@ -104,7 +127,13 @@ def main():
     ap.add_argument("--step", type=float, default=0.02)
     ap.add_argument("--rect", type=float, nargs=4, default=None, metavar=("XMIN", "XMAX", "YMIN", "YMAX"))
     ap.add_argument("--skip-ik", action="store_true")
+    ap.add_argument("--spawn-check", type=int, default=0, metavar="N",
+                    help="Yalnızca ortamın spawn ettiği N sahnede scripted plan kurulma oranını ölç (hedef >= %%98)")
+    ap.add_argument("--tilts", type=float, nargs="+", default=None, help="Kavrama eğimleri (derece)")
     args = ap.parse_args()
+
+    if args.spawn_check:
+        sys.exit(0 if spawn_check(args.spawn_check) >= 0.98 else 1)
 
     from mahut_kol.envs.multi_shape_task import (
         WORKSPACE_X_MAX, WORKSPACE_X_MIN, WORKSPACE_Y_MAX, WORKSPACE_Y_MIN,
@@ -112,7 +141,7 @@ def main():
     rect = args.rect or (WORKSPACE_X_MIN, WORKSPACE_X_MAX, WORKSPACE_Y_MIN, WORKSPACE_Y_MAX)
     xs = np.round(np.arange(0.06, 0.28 + 1e-9, args.step), 4)
     ys = np.round(np.arange(-0.22, 0.18 + 1e-9, args.step), 4)
-    tilts = GRASP_TILTS_DEG
+    tilts = tuple(args.tilts) if args.tilts else GRASP_TILTS_DEG
 
     print(f"1) FK taraması: {args.fk_samples} rastgele konfigürasyon, kavrama derinliği D={GRASP_DEPTH} m")
     fk = fk_scan(args.fk_samples, tilts, args.step, xs, ys)

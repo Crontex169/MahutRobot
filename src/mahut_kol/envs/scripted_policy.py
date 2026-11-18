@@ -5,16 +5,15 @@ MultiShapeRelationalTask için otomatik (scripted) gösterim politikası.
 yaklaş -> kavra -> kaldır -> hedefin üstüne taşı -> indir -> bırak -> geri çekil -> bekle.
 
 - Kinematik: `mahut_kol.robots.kinematics` (URDF ile birebir FK, eğim kısıtlı DLS IK).
-- Kıskaç düşeyden eğik yaklaşır (MahutKol tam aşağı bakarak çalışma alanına erişemez). Eğim
-  hem alma hem bırakma noktasında çözülebilen {50°, 45°, 55°} içinden seçilir; taşıma boyunca
-  sabit tutulur, böylece nesne dik bırakılır.
+- Kıskaç düşeyden eğik yaklaşır (bilek 18.5 cm uzun, ±90° limitlerle masada dikey kavrama
+  yok). Eğim hem alma hem bırakma noktasında çözülebilen TILT_ORDER_DEG içinden seçilir;
+  taşıma boyunca sabit tutulur, böylece nesne dik bırakılır.
 - Şekle göre: kavrama noktası nesne merkezinin biraz üstü; parmak ekseni kol düzlemine dik
   (ortam yaw'ı buna göre hizalı spawn eder, ± 15° gürültü). Prizmada taban kenarı parmak
-  eksenine paralel: pedler iki eğik yüze basar. Kalan yaw sapmasını bilek roll'u (joint4) ile
-  telafi etme seçeneği (use_roll=True) denendi: eğik yaklaşımda roll parmakları masaya
-  indirdiği için erişilebilirliği düşürüyor (30 bölümde 29 -> 20 başarı); varsayılan kapalı,
-  ±15° sapmayı sürtünme ve kıskaç sıkması tolere ediyor.
-- Kıskaç bırakmada yalnızca kısmen açılır (komşu referansa sürtmemek için).
+  eksenine paralel. Açık kıskaç yalnızca 38 mm: 15° dönük 35 mm küp (~43 mm) sığmaz, bu yüzden
+  yaw sapması bilek roll'u (joint4) ile kesin olarak telafi edilir (use_roll=True varsayılan).
+  joint4 = ±π/2'de parmaklar yatay; kıskaç 180° simetrik (wrap_roll).
+- Kıskaç (servo açısı, rad): yaklaşmada tam açık, kapatmada π (kuvvet sınırlı), bırakmada tam açık.
 - Distractor'lar: taşıma yüksekliği tüm nesnelerin üstünden geçecek kadar; ortam hedef
   noktasını boş tutar.
 
@@ -29,11 +28,20 @@ from typing import List, Optional, Sequence, Tuple
 import numpy as np
 
 from mahut_kol.envs.multi_shape_task import arm_heading, object_shape
-from mahut_kol.robots.kinematics import MahutKinematics, finger_min_z, get_kinematics, solve_grasp_ik
+from mahut_kol.robots.kinematics import (
+    GRASP_ROLL,
+    TABLE_CLEARANCE,
+    MahutKinematics,
+    finger_min_z,
+    get_kinematics,
+    solve_grasp_ik,
+    wrap_roll,
+)
+from mahut_kol.robots.mahut_robot import GRIPPER_CLOSED, GRIPPER_M_PER_RAD, GRIPPER_OPEN, robot_state
 
-FINGER_PREGRASP = 0.010   # yaklaşırken parmak açıklığı (0 = tam açık): komşu nesnelere sürtmesin
-FINGER_CLOSE = 0.042      # kapat (kuvvet sınırlı; temas ~0.025-0.030'da)
-FINGER_RELEASE = 0.016    # bırakma: < GRIPPER_RELEASED_QPOS (0.022) ama referansa sürtmeyecek kadar
+FINGER_PREGRASP = GRIPPER_OPEN  # 38 mm açıklık 35 mm nesneye ancak yeter: tam açık yaklaş
+FINGER_CLOSE = GRIPPER_CLOSED   # kapat (kuvvet sınırlı; 35 mm nesneye temas ~0.26 rad)
+FINGER_RELEASE = GRIPPER_OPEN   # bırakma: < GRIPPER_RELEASED_RAD
 GRASP_DZ = 0.0045         # kavrama noktası = nesne merkezi + 4.5 mm
 CARRY_Z_MIN = 0.085       # taşıma: kavrama noktası en az bu yükseklikte (nesne altı ~6 cm,
                           # 35 mm'lik nesnelerin ~2.8 cm üstünden geçer)
@@ -42,8 +50,8 @@ PLACE_DZ = 0.004          # bırakma anında nesne alt yüzü hedefin bu kadar �
 PREGRASP_BACK = 0.055     # yaklaşma ekseni boyunca geri çekilme
 PREGRASP_UP = 0.02
 SPEED = 0.006             # m / kontrol adımı (20 Hz -> 12 cm/s)
-TILT_ORDER_DEG = (50, 45, 55)
-MAX_ROLL = np.radians(30.0)
+TILT_ORDER_DEG = (45, 50, 40, 55)
+PICK_RAISE_MAX = 0.010    # m
 
 
 def _yaw_of(q_wxyz: Sequence[float]) -> float:
@@ -59,7 +67,7 @@ def _wrap(a: float, period: float) -> float:
 class MultiShapeScriptedPolicy:
     name = "scripted"
 
-    def __init__(self, env, kin: Optional[MahutKinematics] = None, use_roll: bool = False):
+    def __init__(self, env, kin: Optional[MahutKinematics] = None, use_roll: bool = True):
         self.env = env  # unwrapped MultiShapeRelationalTask
         self.K = kin or get_kinematics()
         self.use_roll = use_roll
@@ -78,19 +86,21 @@ class MultiShapeScriptedPolicy:
         tgt = e.get_relational_target_position()[0].cpu().numpy().astype(np.float64)
         return p_obj, yaw, tgt
 
-    def _roll_for(self, shape: str, obj_yaw: float, x: float, y: float, tilt: float) -> float:
-        """Parmak ekseni ile nesne yüzleri arasındaki yaw farkını joint4 ile telafi eder."""
+    def _roll_for(self, shape: str, obj_yaw: float, q: Sequence[float]) -> float:
+        """Parmak ekseninin yatay izdüşümünü nesne yüzlerine dik hizalayan joint4 açısı.
+
+        Küp: parmak ekseni bir yüz normaline (yaw mod 90°); prizma: taban kenarına (yerel x,
+        yaw mod 120°) paralel. Roll TCP konumunu/yaklaşmayı değiştirmez; joint4 = φ'de parmak
+        ekseni = cos φ · y0 + sin φ · z0 (y0, z0: joint4 = 0'daki TCP eksenleri).
+        """
         if not self.use_roll or shape == "cylinder":
-            return 0.0
-        heading = arm_heading(x, y)
-        if shape == "cube":
-            err = _wrap(obj_yaw - heading, np.pi / 2)
-        else:  # prizma: taban kenarı (yerel x) parmak eksenine (heading + 90°) paralel olmalı
-            err = _wrap(obj_yaw - (heading + np.pi / 2), 2 * np.pi / 3)
-        # Eğik yaklaşımda roll φ, parmak ekseninin yatay yönünü ~atan(tan φ · cos tilt) kadar
-        # döndürür -> gereken φ = atan(tan(err) / cos(tilt)). İşaret: +joint4 ekseni yaklaşma yönü.
-        phi = float(np.arctan2(np.tan(err), np.cos(tilt)))
-        return float(np.clip(-phi, -MAX_ROLL, MAX_ROLL))
+            return GRASP_ROLL
+        p, R0 = self.K.fk(np.r_[np.asarray(q)[:4], 0.0])
+        base = arm_heading(p[0], p[1]) + np.pi / 2  # GRASP_ROLL'deki parmak yönü
+        period = np.pi / 2 if shape == "cube" else 2 * np.pi / 3
+        psi = base + _wrap(obj_yaw - base, period)
+        n = np.array([-np.sin(psi), np.cos(psi), 0.0])  # istenen yönün yatay normali
+        return wrap_roll(float(np.arctan2(-(R0[:, 1] @ n), R0[:, 2] @ n)))
 
     def _ik(self, G, tilt, q_prev, roll) -> Tuple[np.ndarray, bool]:
         q, ok = solve_grasp_ik(G, tilt, q_init=q_prev, roll=roll, K=self.K)
@@ -108,7 +118,7 @@ class MultiShapeScriptedPolicy:
             q, ok = self._ik(G0 + (G1 - G0) * s, tilt, q, roll0 + (roll1 - roll0) * s)
             if not ok:
                 return None, q
-            out.append(np.r_[q, finger, finger])
+            out.append(np.r_[q, finger])
         return out, q
 
     # ------------------------------------------------------------------
@@ -138,14 +148,23 @@ class MultiShapeScriptedPolicy:
             phases.append((name, len(plan), len(plan) + len(seg)))
             plan.extend(seg)
 
-        roll_pick = self._roll_for(shape, yaw, G_pick[0], G_pick[1], tilt)
-        # Taşıma sırasında nesne kıskaçla birlikte döner; bırakmada roll'u sıfıra döndürmek
-        # nesneyi dünyaya göre -roll kadar çevirir (yaw sapması küçük olduğundan sorun değil).
+        # Roll telafisi parmak köşesini masaya indirebilir: kavrama noktası en fazla
+        # PICK_RAISE_MAX kadar yükseltilerek denenir (35 mm nesnede kavrama payı yeterli kalır).
+        err = "pick"
+        for dz in np.arange(0.0, PICK_RAISE_MAX + 1e-9, 0.002):
+            q_pg, ok = self._ik(G_pick + [0, 0, dz], tilt, q0, GRASP_ROLL)
+            if not ok:
+                continue
+            roll_pick = self._roll_for(shape, yaw, q_pg)
+            q_pg[4] = roll_pick
+            if finger_min_z(self.K, q_pg) > TABLE_CLEARANCE:
+                G_pick = G_pick + [0, 0, dz]
+                break
+            err = "pick_roll_table"
+        else:
+            return None, None, err
+        # Taşıma sırasında nesne kıskaçla birlikte döner; roll sabit tutulur.
         roll_place = roll_pick
-
-        q_pg, ok = self._ik(G_pick, tilt, q0, roll_pick)
-        if not ok:
-            return None, None, "pick"
         a = self.K.approach_of(self.K.fk(q_pg)[1])
         G_pre = G_pick - PREGRASP_BACK * a + [0, 0, PREGRASP_UP]
         q_pre, ok = self._ik(G_pre, tilt, q_pg, roll_pick)
@@ -155,8 +174,8 @@ class MultiShapeScriptedPolicy:
         # 1. Dinlenmeden ön-kavrama noktasına (eklem uzayında yumuşak)
         n = 40
         seg = []
-        start = np.r_[q0, 0.0, 0.0]
-        end = np.r_[q_pre, FINGER_PREGRASP, FINGER_PREGRASP]
+        start = np.r_[q0, FINGER_PREGRASP]
+        end = np.r_[q_pre, FINGER_PREGRASP]
         for k in range(1, n + 1):
             s = 0.5 - 0.5 * np.cos(np.pi * k / n)
             seg.append(start + (end - start) * s)
@@ -167,7 +186,7 @@ class MultiShapeScriptedPolicy:
             return None, None, "descend_pick"
         add("descend_pick", seg + [seg[-1]] * 6)
         # 3. Kapat
-        add("close", [np.r_[q, f, f] for f in np.linspace(FINGER_PREGRASP, FINGER_CLOSE, 8)] + [np.r_[q, FINGER_CLOSE, FINGER_CLOSE]] * 10)
+        add("close", [np.r_[q, f] for f in np.linspace(FINGER_PREGRASP, FINGER_CLOSE, 8)] + [np.r_[q, FINGER_CLOSE]] * 10)
         # 4. Kaldır
         carry_z = max(CARRY_Z_MIN, G_pick[2] + CARRY_CLEARANCE, G_place[2] + CARRY_CLEARANCE)
         G_lift = np.r_[G_pick[:2], carry_z]
@@ -187,7 +206,7 @@ class MultiShapeScriptedPolicy:
             return None, None, "descend_place"
         add("descend_place", seg + [seg[-1]] * 8)
         # 7. Bırak (kısmen aç)
-        add("release", [np.r_[q, f, f] for f in np.linspace(FINGER_CLOSE, FINGER_RELEASE, 6)] + [np.r_[q, FINGER_RELEASE, FINGER_RELEASE]] * 8)
+        add("release", [np.r_[q, f] for f in np.linspace(FINGER_CLOSE, FINGER_RELEASE, 6)] + [np.r_[q, FINGER_RELEASE]] * 8)
         # 8. Geri çekil: yukarı (parmaklar nesneden dikey sıyrılsın), sonra yaklaşma ekseninin tersine
         a = self.K.approach_of(self.K.fk(q)[1])
         G_up = G_place + [0, 0, 0.045]
@@ -203,13 +222,13 @@ class MultiShapeScriptedPolicy:
         add("hold", [seg[-1]] * 40)
         # Masaya girme son kontrolü
         for t in plan:
-            if finger_min_z(self.K, t[:5], float(t[5])) < 0.0:
+            if finger_min_z(self.K, t[:5], float(t[5]) * GRIPPER_M_PER_RAD) < 0.0:
                 return None, None, "table_collision"
         return [np.asarray(t, dtype=np.float32) for t in plan], phases, None
 
     def act(self, qpos: Sequence[float]) -> np.ndarray:
         if not self.plan:
-            return np.asarray(qpos, dtype=np.float32)[:7]
+            return robot_state(np.asarray(qpos, dtype=np.float32))
         a = self.plan[min(self.i, len(self.plan) - 1)]
         self.i += 1
         return a.copy()

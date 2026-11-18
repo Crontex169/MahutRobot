@@ -68,7 +68,7 @@ def main(argv=None):
                 chunk = policy.predict_action_chunk(pre(batch))  # (1, T, D) normalize edilmiş çıktı
                 pred = post(chunk)[0, : a.horizon].float().cpu().numpy()
             gt = all_actions[i: i + a.horizon]
-            errs.append(np.abs(pred[:, :7] - gt).mean(0))
+            errs.append(np.abs(pred[:, : gt.shape[-1]] - gt).mean(0))
             base_zero.append(np.abs(gt).mean(0))
             base_mean.append(np.abs(gt - mean_action).mean(0))
     e, bz, bm = (np.mean(x, axis=0) for x in (errs, base_zero, base_mean))

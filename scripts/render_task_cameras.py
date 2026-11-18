@@ -5,6 +5,8 @@ MultiShapeRelationalTask kameralarını render eder ve yön tanımlarını görs
 Front (sabit) kamera görüntüsüne referans nesnenin 5 yön hedefi (FRONT/BACK/LEFT/RIGHT/TOP)
 kamera iç/dış parametreleriyle izdüşürülüp etiketlenir; yanına bilek kamerası eklenir.
 Beklenen: RIGHT etiketi referansın görüntüde SAĞINDA, FRONT robota doğru (görüntüde yukarı).
+Ek (G5): çalışma alanı köşeleri ve kol TCP'si front görüntüsünün içinde mi; scripted politika
+kavrama anına kadar oynatılıp bilek kamerasında manipüle nesne görünüyor mu (nesne maskesi).
 
 Kullanım:
     python3 scripts/render_task_cameras.py --out docs/vla_kameralar.png
@@ -15,6 +17,8 @@ import os
 import sys
 
 import gymnasium as gym
+import numpy as np
+import torch
 from PIL import Image, ImageDraw
 
 _SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "../src"))
@@ -23,7 +27,15 @@ if _SRC not in sys.path:
 
 import mahut_kol.envs  # noqa: F401,E402
 import mahut_kol.robots  # noqa: F401,E402
-from mahut_kol.envs.multi_shape_task import RELATIONS  # noqa: E402
+from mahut_kol.envs.multi_shape_task import (  # noqa: E402
+    RELATIONS,
+    TABLETOP_HALF_HEIGHT,
+    WORKSPACE_X_MAX,
+    WORKSPACE_X_MIN,
+    WORKSPACE_Y_MAX,
+    WORKSPACE_Y_MIN,
+)
+from mahut_kol.envs.scripted_policy import MultiShapeScriptedPolicy  # noqa: E402
 
 
 def project(K, E, p):
@@ -41,7 +53,7 @@ def main():
 
     env = gym.make(
         "MahutKol-MultiShapeRelational-v1",
-        obs_mode="rgb",
+        obs_mode="rgb+segmentation",
         control_mode="pd_joint_pos",
         render_backend="cpu",
         render_mode="rgb_array",
@@ -72,11 +84,38 @@ def main():
     vf = project(Kc, Ec, targets["FRONT"][0].numpy())[1]
     vb = project(Kc, Ec, targets["BACK"][0].numpy())[1]
     ok = ur > ul and vf < vb
+    # Çalışma alanı köşeleri (masa ve nesne üstü) ve TCP front görüntüsünde mi
+    corners = [(x, y, z) for x in (WORKSPACE_X_MIN, WORKSPACE_X_MAX) for y in (WORKSPACE_Y_MIN, WORKSPACE_Y_MAX)
+               for z in (0.0, 2 * TABLETOP_HALF_HEIGHT)]
+    inside = lambda uv: 0 <= uv[0] < 224 and 0 <= uv[1] < 224  # noqa: E731
+    ws_in = all(inside(project(Kc, Ec, np.array(c))) for c in corners)
+    tcp_in = inside(project(Kc, Ec, u.agent.tcp.pose.p[0].numpy()))
+    for c in corners:
+        uv = project(Kc, Ec, np.array(c)) * s
+        d.rectangle([uv[0] - 3, uv[1] - 3, uv[0] + 3, uv[1] + 3], outline=(0, 255, 255))
+    ok = ok and ws_in and tcp_in
     d.text((8, 8), "front (sabit kamera)", fill=(255, 255, 255))
     ImageDraw.Draw(wrist).text((8, 8), "wrist (bilek kamerasi)", fill=(255, 255, 255))
-    canvas = Image.new("RGB", (224 * s * 2, 224 * s))
+    # Kavrama anı: scripted politika "close" fazının sonuna kadar
+    pol = MultiShapeScriptedPolicy(u)
+    pol.reset(u.agent.robot.get_qpos()[0].numpy())
+    grasp_seen = None
+    if pol.plan_error is None:
+        for _ in range(pol.phase_end("close")):
+            obs, *_ = env.step(torch.as_tensor(pol.act(u.agent.robot.get_qpos()[0].numpy())))
+        seg = obs["sensor_data"]["wrist"]["segmentation"][0, ..., 0].numpy()
+        frac = float((seg == u.get_manipulated_object().per_scene_id[0].item()).mean())
+        grasp_seen = frac
+        ok = ok and frac > 0.01
+    wrist_g = Image.fromarray(obs["sensor_data"]["wrist"]["rgb"][0].numpy()).resize((224 * s, 224 * s), Image.LANCZOS)
+    front_g = Image.fromarray(obs["sensor_data"]["front"]["rgb"][0].numpy()).resize((224 * s, 224 * s), Image.LANCZOS)
+    ImageDraw.Draw(wrist_g).text((8, 8), "wrist - kavrama ani", fill=(255, 255, 255))
+    ImageDraw.Draw(front_g).text((8, 8), "front - kavrama ani", fill=(255, 255, 255))
+    canvas = Image.new("RGB", (224 * s * 2, 224 * s * 2))
     canvas.paste(front, (0, 0))
     canvas.paste(wrist, (224 * s, 0))
+    canvas.paste(front_g, (0, 224 * s))
+    canvas.paste(wrist_g, (224 * s, 224 * s))
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     canvas.save(args.out)
     human = env.render()[0].numpy()
@@ -84,6 +123,10 @@ def main():
     Image.fromarray(human).save(base + "_genel" + ext)
     print(f"Kaydedildi: {args.out}, {base}_genel{ext}")
     print(f"RIGHT görüntüde LEFT'in sağında: {ur > ul}; FRONT görüntüde BACK'in üstünde (robota doğru): {vf < vb}")
+    print(f"Çalışma alanı köşeleri front görüntüsünde: {ws_in}; TCP front görüntüsünde: {tcp_in}")
+    print(f"Kavrama anında manipüle nesne bilek görüntüsünün oranı: "
+          f"{'plan yok: ' + str(pol.plan_error) if grasp_seen is None else f'{grasp_seen:.1%}'}")
+    print("SONUÇ:", "GEÇTİ" if ok else "KALDI")
     env.close()
     sys.exit(0 if ok else 1)
 
