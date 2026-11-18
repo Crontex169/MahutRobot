@@ -79,7 +79,7 @@ class TestMahutPS4Controller(unittest.TestCase):
         self.assertLess(action_open[6], 0.0)
         self.assertEqual(action_open[5], action_open[6])
 
-        # R2 triggers closing: positive delta towards joint upper limit (0.042)
+        # R2 triggers closing: positive delta (kapanma yönü)
         action_close = self.controller.compute_action_from_inputs(
             lx=0.0, ly=0.0, rx=0.0, ry=0.0, l2=0.0, r2=1.0
         )

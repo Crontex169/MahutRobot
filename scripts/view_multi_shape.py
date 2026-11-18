@@ -110,11 +110,21 @@ def main():
     env = gym.make(
         env_id,
         obs_mode="state",
-        control_mode="pd_joint_target_delta_pos",
+        control_mode="pd_joint_pos",
         render_mode="human",
     )
 
     unwrapped: MultiShapeRelationalTask = env.unwrapped
+    # Robotu dinlenme duruşunda tut (mutlak pd_joint_pos hedefi)
+    from mahut_kol.envs.multi_shape_task import ROBOT_REST_QPOS
+    from mahut_kol.robots.mahut_robot import robot_state
+
+    hold = torch.as_tensor(robot_state(np.asarray(ROBOT_REST_QPOS, np.float32)), device=unwrapped.device)
+    # Robotu dinlenme duruşunda tut (mutlak pd_joint_pos hedefi)
+    from mahut_kol.envs.multi_shape_task import ROBOT_REST_QPOS
+    from mahut_kol.robots.mahut_robot import robot_state
+
+    hold = torch.as_tensor(robot_state(np.asarray(ROBOT_REST_QPOS, np.float32)), device=unwrapped.device)
 
     try:
         if args.show_all_9:
@@ -138,7 +148,7 @@ def main():
                 if hasattr(viewer, "closed") and viewer.closed:
                     break
                 # Nesneleri sabit tut, robotu hazır duruşta göster
-                env.step(torch.zeros(env.action_space.shape, device=unwrapped.device))
+                env.step(hold)
                 viewer = env.render()
                 time.sleep(0.02)
         else:
@@ -165,8 +175,7 @@ def main():
                 while time.time() - start_t < 3.5:
                     if hasattr(viewer, "closed") and viewer.closed:
                         return
-                    action = torch.zeros(env.action_space.shape, device=unwrapped.device)
-                    env.step(action)
+                    env.step(hold)
                     viewer = env.render()
                     time.sleep(0.02)
 

@@ -210,7 +210,9 @@ class TestEnvRules(unittest.TestCase):
                 self.assertGreaterEqual(np.linalg.norm(a - b), MIN_PAIRWISE_DISTANCE - 1e-6)
 
     def _teleport_to_target(self, finger_q):
-        """Nesneyi hedefe koy, kıskacı yukarıda tut, parmakları finger_q'ya ayarla."""
+        """Nesneyi hedefe koy, kıskacı yukarıda tut, parmakları finger_q'ya (m) ayarla; eylem (6) döner."""
+        from mahut_kol.robots.mahut_robot import robot_state
+
         u = self.env.unwrapped
         tgt = u.get_relational_target_position()
         obj = u.get_manipulated_object()
@@ -218,7 +220,7 @@ class TestEnvRules(unittest.TestCase):
         qpos = u.agent.robot.get_qpos().clone()
         qpos[:, 5:7] = finger_q
         u.agent.robot.set_qpos(qpos)
-        return qpos
+        return robot_state(qpos)
 
     def test_success_requires_release_and_settling(self):
         u = self.env.unwrapped
@@ -244,7 +246,9 @@ class TestEnvRules(unittest.TestCase):
         self.env.reset(
             seed=6, options=dict(manipulated_object="blue_cube", reference_object="red_cube", relation="RIGHT")
         )
-        qpos = self._teleport_to_target(0.042)  # kapalı kıskaç = "bırakılmadı"
+        from mahut_kol.robots.mahut_robot import FINGER_TRAVEL
+
+        qpos = self._teleport_to_target(FINGER_TRAVEL)  # kapalı kıskaç = "bırakılmadı"
         for _ in range(SETTLE_STEPS + 2):
             _, _, _, _, info = self.env.step(qpos[0])
         self.assertTrue(bool(info["is_placed"]))

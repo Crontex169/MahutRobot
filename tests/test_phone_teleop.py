@@ -2,7 +2,7 @@
 Aşama 3: telefon (WebXR) teleop - telefonsuz testler.
 - Sahte WebSocket mesajları (FastAPI TestClient) -> paylaşılan durum
 - Eksen eşlemesi: telefon ileri -> TCP -x, sağ -> +y, yukarı -> +z
-- Debriyaj bırakılınca kol sabit; kıskaç kaydırıcısı -> parmak eklemi
+- Debriyaj bırakılınca kol sabit; kıskaç kaydırıcısı -> kıskaç servo açısı
 - IK çalışma alanındaki hedeflere ulaşıyor (sayısal)
 - Uçtan uca: sahte mesajlarla ManiSkill env.step döngüsünde TCP hedefe gidiyor
 """
@@ -21,7 +21,7 @@ from mahut_kol.envs.multi_shape_task import (
     WORKSPACE_Y_MIN,
 )
 from mahut_kol.robots.kinematics import get_kinematics
-from mahut_kol.teleop.action_source import FINGER_CLOSED, ScriptedActionSource, clip_action
+from mahut_kol.teleop.action_source import GRIPPER_CLOSED, ScriptedActionSource, clip_action
 from mahut_kol.teleop.phone_webxr import (
     DEFAULT_HTML,
     PhoneActionSource,
@@ -180,16 +180,18 @@ class TestPhoneActionSourceInSim(unittest.TestCase):
         d = p1 - p0
         self.assertGreater(d[1], 0.02, d)
         self.assertGreater(d[2], 0.03, d)
-        self.assertAlmostEqual(float(a[5]), FINGER_CLOSED, places=5)
+        self.assertEqual(a.shape, (6,))
+        self.assertAlmostEqual(float(a[5]), GRIPPER_CLOSED, places=5)
         src.state.handle_message(json.dumps({"type": "reset"}))
         src.act(u.agent.robot.get_qpos()[0].numpy())
         self.assertIn("reset", src.poll_events())
         env.close()
 
     def test_scripted_source_clip(self):
-        s = ScriptedActionSource([[9, 9, 9, 9, 9, 1, -1]])
+        s = ScriptedActionSource([[9, 9, 9, 9, 9, -1]])
         a = s.act(np.zeros(7))
-        np.testing.assert_allclose(a, clip_action([9, 9, 9, 9, 9, 1, -1]))
+        np.testing.assert_allclose(a, clip_action([9, 9, 9, 9, 9, -1]))
+        np.testing.assert_allclose(a[5], 0.0)
         self.assertTrue(s.done)
 
 
@@ -232,7 +234,7 @@ class TestWaitForStart(unittest.TestCase):
         self.assertEqual(wait_for_start(None, src, poll_s=0.01, timeout_s=0.5), "reset")
 
     def test_keyboard_source_always_ready(self):
-        self.assertTrue(ScriptedActionSource([[0] * 7]).ready())
+        self.assertTrue(ScriptedActionSource([[0] * 6]).ready())
 
 
 class TestQuaternionDelta(unittest.TestCase):
@@ -287,8 +289,8 @@ class TestWristCameraFrame(unittest.TestCase):
         u = env.unwrapped
         K = get_kinematics()
         cam = u._sensors["wrist"].camera
-        for q_arm in (ROBOT_REST_QPOS[:5], np.array([0.6, 0.7, 0.5, -1.6, 0.5])):
-            a = torch.tensor(np.r_[q_arm, 0, 0], dtype=torch.float32)
+        for q_arm in (ROBOT_REST_QPOS[:5], np.array([0.6, 0.8, 0.5, -0.3, 0.5])):
+            a = torch.tensor(np.r_[q_arm, 0], dtype=torch.float32)
             for _ in range(40):
                 env.step(a)
             q = u.agent.robot.get_qpos()[0].numpy()

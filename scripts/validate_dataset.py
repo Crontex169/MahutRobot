@@ -36,6 +36,7 @@ if _SRC not in sys.path:
 
 from mahut_kol.commands import Command, load_heldout, to_slots  # noqa: E402
 from mahut_kol.envs.multi_shape_task import OBJECT_IDS, RELATIONS  # noqa: E402
+from mahut_kol.robots.mahut_robot import ACTION_DIM  # noqa: E402
 from mahut_kol.recording import DEFAULT_REPO_ID, DEFAULT_ROOT, IMAGE_KEYS, SIDECAR_NAME, SLOTS_KEY, check_schema, read_sidecar  # noqa: E402
 
 
@@ -131,8 +132,8 @@ def validate(root: Path, repo_id: str, video_check: str, video_samples: int, all
         if bad.any():
             rows = np.unique(data.loc[bad.any(axis=1), "episode_index"])
             rep.err(f"{col}: {int(bad.sum())} NaN/Inf değer (bölümler {rows[:10].tolist()})")
-        if arr.shape[1] != 7:
-            rep.err(f"{col} boyutu {arr.shape[1]} != 7")
+        if arr.shape[1] != ACTION_DIM:
+            rep.err(f"{col} boyutu {arr.shape[1]} != {ACTION_DIM}")
 
     # 5. Sidecar
     rows = read_sidecar(root / SIDECAR_NAME)

@@ -4,7 +4,8 @@ MahutRobot: yeni MahutKol (5-DOF + tek servolu paralel kıskaç) için ManiSkill
 - Kol: joint0 (taban yaw), joint1-3 (paralel pitch), joint4 (bilek roll = yaklaşma ekseni).
   Hepsi Feetech FT5330M, ±90°, 3.4 Nm.
 - Kıskaç: tek servo (gerçekte j6, 0 = açık, π = kapalı) iki prismatik parmağı
-  0..0.018 m sürer (parmak = açı · GRIPPER_M_PER_RAD). URDF'te servo eklemi yok; eylemdeki
+  0..0.022 m sürer (parmak = açı · GRIPPER_M_PER_RAD); açıkken parmak arası 46 mm. Açıklık ve
+  kıskacın 90° döndürülmüş montajı CAD'den bilinçli sapmadır (bkz. scripts/mjcf_to_urdf.py). URDF'te servo eklemi yok; eylemdeki
   servo açısı kontrolcüde iki parmak hedefine çevrilir. Temas anında parmak durur, servo da
   durur; bu yüzden kıskaç state'i parmak konumundan geri hesaplanır.
 - Eylem (pd_joint_pos, 6): [joint0..4 (rad), kıskaç servo açısı (rad)].
@@ -33,10 +34,10 @@ _DEFAULT_URDF_PATH = os.path.abspath(
 )
 
 ARM_DOF = 5
-FINGER_TRAVEL = 0.018                     # m, parmak başına (URDF limiti)
+FINGER_TRAVEL = 0.022                     # m, parmak başına (URDF limiti)
 GRIPPER_OPEN = 0.0                        # rad
 GRIPPER_CLOSED = float(np.pi)             # rad
-GRIPPER_M_PER_RAD = FINGER_TRAVEL / np.pi  # MJCF equality polycoef 0.00572958
+GRIPPER_M_PER_RAD = FINGER_TRAVEL / np.pi  # MJCF: 0.018 / π (polycoef 0.00572958)
 ARM_LIMIT = 1.5708                        # FT5330M ±90°
 ACTION_DIM = ARM_DOF + 1
 STATE_NAMES = ["joint0", "joint1", "joint2", "joint3", "joint4", "gripper"]

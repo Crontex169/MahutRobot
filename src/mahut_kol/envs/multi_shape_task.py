@@ -74,9 +74,9 @@ SUCCESS_Z_TOLERANCE = 0.012       # metre (TOP'ta referansın üstünde, diğerl
 UPRIGHT_COS_THRESHOLD = float(np.cos(np.radians(20.0)))  # dik durma eşiği
 
 # "Bırakıldı" tanımı: kıskaç 35 mm nesneye temas açısından daha açık ve temas yok. Kıskaç servo
-# açısı 0 = açık (parmak arası 38 mm), π = kapalı; 35 mm nesneye temas ~0.26 rad (parmak 1.5 mm).
-# 0.15 rad'da parmak arası ~36.3 mm.
-GRIPPER_RELEASED_RAD = 0.15
+# açısı 0 = açık (parmak arası 46 mm), π = kapalı; 35 mm nesneye temas ~0.79 rad (parmak 5.5 mm).
+# 0.4 rad'da parmak arası ~40.4 mm.
+GRIPPER_RELEASED_RAD = 0.4
 # "Durağan" tanımı: nesne hızları eşik altında, ardışık SETTLE_STEPS kontrol adımı (20 Hz).
 STATIC_LIN_VEL = 0.02             # m/s
 STATIC_ANG_VEL = 0.5              # rad/s
@@ -91,7 +91,7 @@ MIN_PAIRWISE_DISTANCE = 0.065     # metre
 
 # MahutKol çalışma alanı (nesne merkezleri ve hedefler için, metre).
 # FK/IK ile örneklenerek hesaplandı (scripts/compute_workspace.py): kıskaç düşeyden
-# 40/45/50/55° eğik, parmaklar yatay (joint4 = π/2) yaklaşırken nesne kavrama (z=0.022),
+# 40/45/50/55° eğik, parmaklar yatay (joint4 = 0) yaklaşırken nesne kavrama (z=0.022),
 # referans üstüne bırakma (+0.038) ve taşıma (+0.065) yüksekliklerinin üçü de IK ile
 # çözülebilen ve parmakların masaya girmediği hücrelerden güvenli bir dikdörtgen seçildi.
 # Bilek (joint4 -> TCP) 18.5 cm: masada dikey kavrama yok, eğik kavrama kullanılır. Kol
@@ -102,9 +102,9 @@ WORKSPACE_Y_MIN = -0.14
 WORKSPACE_Y_MAX = 0.14
 
 # Bölüm başında kol (robot qpos: joint0..4, finger_left, finger_right): TCP ≈ (0.14, 0, 0.11),
-# kıskaç düşeyden 55° eğik, parmaklar yatay (joint4 = π/2) ve tam açık (parmak 0 m = açık,
-# 0.018 m = kapalı). IK ile hesaplanıp yuvarlandı.
-ROBOT_REST_QPOS = [0.0, 0.92, 0.06, -0.25, 1.57, 0.0, 0.0]
+# kıskaç düşeyden 55° eğik, parmaklar yatay (joint4 = 0) ve tam açık (parmak 0 m = açık,
+# 0.022 m = kapalı). IK ile hesaplanıp yuvarlandı.
+ROBOT_REST_QPOS = [0.0, 0.92, 0.06, -0.25, 0.0, 0.0, 0.0]
 
 
 # Nesnelerin başlangıç yaw'ı: kavranabilir yönelim + gürültü. Küp 90°, prizma 120° simetrik;

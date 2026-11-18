@@ -229,18 +229,22 @@ class TestShapeObjectsFactory(unittest.TestCase):
         import mahut_kol.envs
         from mani_skill.utils.structs.actor import Actor
 
-        env = gym.make("MahutKol-Minimal-v0")
-        ms_scene = env.unwrapped.scene
-        actors = build_manipulation_objects(ms_scene)
+        # Eski MahutKol-Minimal-v0 silindi; görev ortamı nesneleri aynı fabrikayla kurar.
+        env = gym.make("MahutKol-MultiShapeRelational-v1")
+        env.reset(seed=0)
+        u = env.unwrapped
+        actors = u.manipulation_objects
+        active = {u.manipulated_object_id, u.reference_object_id, *u.distractor_object_ids}
 
         self.assertEqual(len(actors), 9)
         for key, act in actors.items():
             self.assertIsInstance(act, Actor, f"{key} should be an Actor instance")
             self.assertEqual(act.name, key)
             self.assertAlmostEqual(act.mass.item(), DEFAULT_MASS, delta=0.001)
-            # Pose in ManiSkill Actor is batched tensor
+            # Pose in ManiSkill Actor is batched tensor; aktif olmayanlar park edilir
             pos = act.pose.p.squeeze().tolist()
-            self.assertAlmostEqual(pos[2], DEFAULT_PARKING_Z, places=3)
+            if key not in active:
+                self.assertAlmostEqual(pos[2], DEFAULT_PARKING_Z, places=3)
 
         env.close()
 

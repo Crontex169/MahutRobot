@@ -15,6 +15,14 @@ Dönüşümler:
 - Mesh'ler çarpışma olarak da eklenir (SAPIEN dışbükey zarf alır); MJCF'te kol mesh'lerinin
   çarpışması kapalıydı.
 
+CAD'DEN BİLİNÇLİ SAPMALAR (kullanıcı kararı 2026-11-18; gerçek kıskaç/montaj buna göre yapılmalı):
+- GRIPPER_ROLL_DEG = 90: kıskaç (gövde + parmaklar + TCP) bilek roll ekseni etrafında 90°
+  döndürülür. MJCF'te j5 = 0'da parmaklar kol düzleminde açılıyordu; yatay kavrama için servo
+  limitine (±90°) gitmek gerekiyordu. Döndürülünce j5 = 0'da parmaklar yatay, yaw düzeltmesi
+  için ±90° simetrik pay var ve bilek kamerası hep üstte.
+- FINGER_OFFSET / FINGER_TRAVEL = 0.026 / 0.022 m (MJCF: 0.022 / 0.018): açık kıskaç 38 -> 46 mm.
+  38 mm'de eğik kavramada ±15° dönük 35 mm küp sığmıyordu (scripted küp başarısı 5/16).
+
 Kullanım: python3 scripts/mjcf_to_urdf.py [--mjcf Yeni_model/arm_mujoco.xml]
 """
 
@@ -28,6 +36,9 @@ import trimesh
 
 ROOT = Path(__file__).resolve().parents[1]
 ARM = {"j1": 0, "j2": 1, "j3": 2, "j4": 3, "j5": 4}
+GRIPPER_ROLL_DEG = 90.0
+FINGER_OFFSET = 0.026  # m, parmak gövdesinin kıskaç merkezinden uzaklığı (MJCF 0.022)
+FINGER_TRAVEL = 0.022  # m, parmak başına strok (MJCF 0.018); kapalıda iç açıklık yine 2 mm
 FINGERS = {"finger_left": "finger_left", "finger_right": "finger_right"}
 
 
@@ -61,18 +72,33 @@ def main():
     P = lambda x: W @ (np.asarray(x) - c)
     Rw = lambda R: W @ np.asarray(R).reshape(3, 3)
 
-    # Link çerçeveleri (q = 0)
+    # Kıskaç alt ağacı (gripper, parmaklar, TCP) j5 ekseni etrafında GRIPPER_ROLL_DEG döndürülür
     a4 = W @ d.xaxis[m.joint("j5").id]
+    o4 = P(d.xanchor[m.joint("j5").id])
+    k = np.array([[0, -a4[2], a4[1]], [a4[2], 0, -a4[0]], [-a4[1], a4[0], 0]])
+    th = np.radians(GRIPPER_ROLL_DEG)
+    Rg = np.eye(3) + np.sin(th) * k + (1 - np.cos(th)) * k @ k
     g = m.body("gripper").id
-    f4 = Rw(d.xmat[g])[:, 0]
+    in_gripper = {b for b in range(m.nbody) if b == g or m.body_parentid[b] == g}
+    _P, _Rw = P, Rw
+    P_body = lambda b, x: o4 + Rg @ (_P(x) - o4) if b in in_gripper else _P(x)  # noqa: E731
+    R_body = lambda b, R: Rg @ _Rw(R) if b in in_gripper else _Rw(R)  # noqa: E731
+
+    # Link çerçeveleri (q = 0)
+    f4 = R_body(g, d.xmat[g])[:, 0]
     f4 = f4 - (f4 @ a4) * a4
     f4 /= np.linalg.norm(f4)
     R4 = np.stack([a4, f4, np.cross(a4, f4)], axis=1)
     frames = {"base_link": (np.zeros(3), np.eye(3))}
     for jn, i in ARM.items():
         frames[f"link{i}"] = (P(d.xanchor[m.joint(jn).id]), R4 if i == 4 else np.eye(3))
+    gx = R_body(g, d.xmat[g])
     for b in FINGERS:
-        frames[f"{b}_link"] = (P(d.xpos[m.body(b).id]), R4)
+        # Parmak gövdesi kıskaç x ekseninde ±FINGER_OFFSET (MJCF: ±0.022)
+        p_f = P_body(m.body(b).id, d.xpos[m.body(b).id])
+        p_g = P_body(g, d.xpos[g])
+        along = (p_f - p_g) @ gx[:, 0]
+        frames[f"{b}_link"] = (p_f + (np.sign(along) * FINGER_OFFSET - along) * gx[:, 0], R4)
 
     def owner(b):
         while b > 0:
@@ -105,12 +131,12 @@ def main():
         parts = []
         # Kütle / atalet (bileşik, link çerçevesinde)
         ms = np.array([m.body_mass[b] for b in bodies[link]])
-        cs = np.array([P(d.xipos[b]) for b in bodies[link]])
+        cs = np.array([P_body(b, d.xipos[b]) for b in bodies[link]])
         M = ms.sum()
         C = (ms[:, None] * cs).sum(0) / M
         I = np.zeros((3, 3))
         for b, mb, cb in zip(bodies[link], ms, cs):
-            Ri = Rw(d.ximat[b])
+            Ri = R_body(b, d.ximat[b])
             r = cb - C
             I += Ri @ np.diag(m.body_inertia[b]) @ Ri.T + mb * (r @ r * np.eye(3) - np.outer(r, r))
         I = RL.T @ I @ RL
@@ -122,8 +148,11 @@ def main():
         for gi in range(m.ngeom):
             if m.geom_bodyid[gi] not in bodies[link]:
                 continue
-            Rg = RL.T @ Rw(d.geom_xmat[gi])
-            pg = RL.T @ (P(d.geom_xpos[gi]) - o)
+            gb = m.geom_bodyid[gi]
+            Rgeo = RL.T @ R_body(gb, d.geom_xmat[gi])
+            pg = RL.T @ (P_body(gb, d.geom_xpos[gi]) - o)
+            if link.startswith("finger_"):  # parmak gövdesi FINGER_OFFSET'e taşındı; geom link'e göre aynı
+                pg = RL.T @ (P_body(gb, d.geom_xpos[gi]) - P_body(gb, d.xpos[gb]))
             rgba = tuple(np.round(m.geom_rgba[gi], 3))
             mat = colors.setdefault(rgba, f"mat{len(colors)}")
             if m.geom_type[gi] == mujoco.mjtGeom.mjGEOM_MESH:
@@ -140,8 +169,8 @@ def main():
                 geo = '<box size="{} {} {}"/>'.format(*(2 * m.geom_size[gi]))
             else:
                 raise ValueError(f"Desteklenmeyen geom tipi: {m.geom_type[gi]}")
-            parts.append(f'    <visual>{origin(pg, Rg)}<geometry>{geo}</geometry><material name="{mat}"/></visual>')
-            parts.append(f"    <collision>{origin(pg, Rg)}<geometry>{geo}</geometry></collision>")
+            parts.append(f'    <visual>{origin(pg, Rgeo)}<geometry>{geo}</geometry><material name="{mat}"/></visual>')
+            parts.append(f"    <collision>{origin(pg, Rgeo)}<geometry>{geo}</geometry></collision>")
         links_xml.append(f'  <link name="{link}">\n' + "\n".join(parts) + "\n  </link>")
 
     def joint(name, jtype, parent, child, axis=None, lo=None, hi=None, effort=3.4, vel=3.0):
@@ -162,14 +191,12 @@ def main():
         lo, hi = m.jnt_range[jid]
         joints_xml.append(joint(f"joint{i}", "revolute", parent, f"link{i}", W @ d.xaxis[jid], lo, hi))
         parent = f"link{i}"
-    gR = Rw(d.xmat[g])
     for b in FINGERS:
         jid = m.body_jntadr[m.body(b).id]
-        lo, hi = m.jnt_range[jid]
         joints_xml.append(
-            joint(b, "prismatic", "link4", f"{b}_link", gR @ m.jnt_axis[jid], lo, hi, effort=20.0, vel=0.2)
+            joint(b, "prismatic", "link4", f"{b}_link", gx @ m.jnt_axis[jid], 0.0, FINGER_TRAVEL, effort=20.0, vel=0.2)
         )
-    tcp = P(d.site_xpos[m.site("tcp").id])
+    tcp = P_body(g, d.site_xpos[m.site("tcp").id])
     frames["link_gripper_center"] = (tcp, R4)
     links_xml.append('  <link name="link_gripper_center"/>')
     joints_xml.append(joint("joint_gripper_center", "fixed", "link4", "link_gripper_center"))

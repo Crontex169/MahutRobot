@@ -10,9 +10,9 @@ yaklaş -> kavra -> kaldır -> hedefin üstüne taşı -> indir -> bırak -> ger
   taşıma boyunca sabit tutulur, böylece nesne dik bırakılır.
 - Şekle göre: kavrama noktası nesne merkezinin biraz üstü; parmak ekseni kol düzlemine dik
   (ortam yaw'ı buna göre hizalı spawn eder, ± 15° gürültü). Prizmada taban kenarı parmak
-  eksenine paralel. Açık kıskaç yalnızca 38 mm: 15° dönük 35 mm küp (~43 mm) sığmaz, bu yüzden
-  yaw sapması bilek roll'u (joint4) ile kesin olarak telafi edilir (use_roll=True varsayılan).
-  joint4 = ±π/2'de parmaklar yatay; kıskaç 180° simetrik (wrap_roll).
+  eksenine paralel. Kalan yaw sapması bilek roll'u (joint4) ile kesin olarak telafi edilir
+  (use_roll=True varsayılan; eğik yaklaşımda parmak ekseni yataydan biraz sapar, 46 mm açıklık
+  bunu tolere eder). joint4 = 0'da parmaklar yatay; kıskaç 180° simetrik (wrap_roll).
 - Kıskaç (servo açısı, rad): yaklaşmada tam açık, kapatmada π (kuvvet sınırlı), bırakmada tam açık.
 - Distractor'lar: taşıma yüksekliği tüm nesnelerin üstünden geçecek kadar; ortam hedef
   noktasını boş tutar.
@@ -39,8 +39,8 @@ from mahut_kol.robots.kinematics import (
 )
 from mahut_kol.robots.mahut_robot import GRIPPER_CLOSED, GRIPPER_M_PER_RAD, GRIPPER_OPEN, robot_state
 
-FINGER_PREGRASP = GRIPPER_OPEN  # 38 mm açıklık 35 mm nesneye ancak yeter: tam açık yaklaş
-FINGER_CLOSE = GRIPPER_CLOSED   # kapat (kuvvet sınırlı; 35 mm nesneye temas ~0.26 rad)
+FINGER_PREGRASP = GRIPPER_OPEN  # tam açık yaklaş (46 mm)
+FINGER_CLOSE = GRIPPER_CLOSED   # kapat (kuvvet sınırlı; 35 mm nesneye temas ~0.79 rad)
 FINGER_RELEASE = GRIPPER_OPEN   # bırakma: < GRIPPER_RELEASED_RAD
 GRASP_DZ = 0.0045         # kavrama noktası = nesne merkezi + 4.5 mm
 CARRY_Z_MIN = 0.085       # taşıma: kavrama noktası en az bu yükseklikte (nesne altı ~6 cm,

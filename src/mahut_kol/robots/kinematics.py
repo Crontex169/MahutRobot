@@ -285,8 +285,9 @@ class MahutKinematics:
 
 
 # Başlangıç duruşları: joint1-3 eklem aralıklarını (±90°) kaba bir ızgarayla kaplar (yerel
-# minimumlara karşı çoklu başlangıç).
-DEFAULT_IK_SEEDS = tuple(
+# minimumlara karşı çoklu başlangıç). İlk eleman çalışma alanı üstündeki tipik eğik kavrama
+# duruşudur (tek başlangıçlı ik() bunu kullanır).
+DEFAULT_IK_SEEDS = ((0.0, 0.8, 0.5, 0.3, 0.0),) + tuple(
     (0.0, j1, j2, j3, 0.0)
     for j1 in (-0.9, -0.2, 0.5, 1.2)
     for j2 in (-1.2, -0.4, 0.4, 1.2)
@@ -318,9 +319,10 @@ GRASP_DEPTH = 0.0
 # uzak noktalar 55° ile erişilebilir; 50° ortada en geniş alanı kapsar (scripts/compute_workspace.py).
 GRASP_TILTS_DEG = (40, 45, 50, 55)
 TABLE_CLEARANCE = 0.002
-# joint4 = 0'da parmaklar kol düzleminde açılır; ±π/2'de yatay. Kıskaç 180° simetrik olduğundan
-# gereken her parmak yönü [-π/2, π/2] içinde bir roll ile sağlanır (bkz. wrap_roll).
-GRASP_ROLL = np.pi / 2
+# joint4 = 0'da parmaklar yatay (kıskaç roll servosuna 90° döndürülmüş monte, bkz.
+# scripts/mjcf_to_urdf.py). Kıskaç 180° simetrik olduğundan gereken her parmak yönü
+# [-π/2, π/2] içinde bir roll ile sağlanır (bkz. wrap_roll).
+GRASP_ROLL = 0.0
 
 
 def wrap_roll(phi: float) -> float:

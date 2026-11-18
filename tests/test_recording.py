@@ -26,8 +26,8 @@ def fake_frames(n, val=50):
         yield {
             "observation.images.front": np.full((224, 224, 3), val, np.uint8),
             "observation.images.wrist": np.full((224, 224, 3), 255 - val, np.uint8),
-            "observation.state": np.full(7, i, np.float32),
-            "action": np.full(7, -i, np.float32),
+            "observation.state": np.full(6, i, np.float32),
+            "action": np.full(6, -i, np.float32),
             "command.slots": np.array([2, 0, 0, 1, 3]),
             "task": to_english_instruction(CMD),
         }
@@ -82,7 +82,7 @@ class TestWriter(unittest.TestCase):
                 w.add_episode(fake_frames(5), episode_meta(CMD, "x", 0, "teleop", False, True, 1.0))
             info_path = root / "meta" / "info.json"
             info = json.loads(info_path.read_text())
-            info["features"]["observation.state"]["shape"] = [6]
+            info["features"]["observation.state"]["shape"] = [7]  # eski kol şeması
             info_path.write_text(json.dumps(info))
             before = snapshot(root)
             with self.assertRaises(ValueError) as ctx:
