@@ -1,0 +1,27 @@
+# MahutKol robot özeti (yeni kol, 2026-11). Kod bu dosyayı okumaz; tek kaynak
+# src/mahut_kol/robots/mahut_robot.py ve assets/urdf/mahut_kol.urdf (scripts/mjcf_to_urdf.py ile
+# Yeni_model/arm_mujoco.xml'den üretilir).
+robot:
+  name: "mahut_kol"
+  urdf_path: "assets/urdf/mahut_kol.urdf"
+  source_mjcf: "Yeni_model/arm_mujoco.xml"   # git'te izlenmez
+
+  # 6 Feetech FT5330M (PWM 500-2500 µs, ±90°, ölü bant ~0.4°, mekanik durdurucu yok)
+  arm_joint_names:      # MJCF j1..j5, hepsi [-1.5708, 1.5708] rad
+    - "joint0"          # taban yaw
+    - "joint1"          # omuz pitch
+    - "joint2"          # dirsek pitch
+    - "joint3"          # bilek pitch
+    - "joint4"          # bilek roll (= yaklaşma ekseni); 0'da parmaklar yatay
+  gripper_joint_names:  # tek servo (MJCF j6) -> iki prismatik parmak, 0 = açık, 0.022 m = kapalı
+    - "finger_left"
+    - "finger_right"
+  ee_link_name: "link_gripper_center"
+
+  # Eylem / observation.state (6): joint0..4 (rad) + kıskaç servo açısı (rad, 0 = açık, π = kapalı)
+  action_dim: 6
+  # Robot qpos (7) ile bölüm başı duruşu: envs/multi_shape_task.py ROBOT_REST_QPOS
+
+  controllers:          # robots/mahut_robot.py
+    arm: {type: pd_joint_pos, stiffness: 400.0, damping: 20.0, force_limit: 3.4}
+    gripper: {type: pd_joint_pos (servo açısı -> parmak), stiffness: 1000.0, damping: 10.0, force_limit: 10.0}

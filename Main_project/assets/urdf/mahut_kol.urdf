@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Üretildi: scripts/mjcf_to_urdf.py (Yeni_model/arm_mujoco.xml). Elle düzenleme. -->
+<robot name="mahut_kol">
+  <material name="mat0"><color rgba="0.95 0.55 0.15 1.0"/></material>
+  <material name="mat1"><color rgba="0.15 0.15 0.15 1.0"/></material>
+  <material name="mat2"><color rgba="0.8 0.8 0.85 1.0"/></material>
+  <material name="mat3"><color rgba="0.7 0.7 0.7 1.0"/></material>
+  <material name="mat4"><color rgba="0.6 0.6 0.65 1.0"/></material>
+  <material name="mat5"><color rgba="0.2 0.2 0.2 1.0"/></material>
+  <material name="mat6"><color rgba="0.2 0.5 0.9 1.0"/></material>
+  <link name="base_link">
+    <inertial><origin xyz="-0.0017497962 3.103677e-06 0.033321023" rpy="0 -0 0"/><mass value="2.3991415"/><inertia ixx="0.0042487026" ixy="-1.3010903e-08" ixz="5.1621634e-05" iyy="0.0043231938" iyz="4.2568481e-08" izz="0.0059883261"/></inertial>
+    <visual><origin xyz="0.00017414587 -8.1382822e-07 0.032529586" rpy="1.5704775 -1.5626057 -3.1412738"/><geometry><mesh filename="../meshes/base.stl"/></geometry><material name="mat0"/></visual>
+    <collision><origin xyz="0.00017414587 -8.1382822e-07 0.032529586" rpy="1.5704775 -1.5626057 -3.1412738"/><geometry><mesh filename="../meshes/base.stl"/></geometry></collision>
+    <visual><origin xyz="-0.0094135191 -2.8190671e-09 0.038651575" rpy="-1.4544058 -1.110223e-15 1.5707963"/><geometry><mesh filename="../meshes/servo1.stl"/></geometry><material name="mat1"/></visual>
+    <collision><origin xyz="-0.0094135191 -2.8190671e-09 0.038651575" rpy="-1.4544058 -1.110223e-15 1.5707963"/><geometry><mesh filename="../meshes/servo1.stl"/></geometry></collision>
+  </link>
+  <link name="link0">
+    <inertial><origin xyz="0.00013939106 0.00074845319 0.014287667" rpy="0 -0 0"/><mass value="0.94696633"/><inertia ixx="0.00052596557" ixy="-7.6734031e-07" ixz="-3.2852494e-06" iyy="0.0005553293" iyz="-5.3154704e-06" izz="0.00087601291"/></inertial>
+    <visual><origin xyz="-2.6465775e-06 -3.0028526e-09 0.0007421913" rpy="-1.5707963 1.5707963 0"/><geometry><mesh filename="../meshes/horn1.stl"/></geometry><material name="mat2"/></visual>
+    <collision><origin xyz="-2.6465775e-06 -3.0028526e-09 0.0007421913" rpy="-1.5707963 1.5707963 0"/><geometry><mesh filename="../meshes/horn1.stl"/></geometry></collision>
+    <visual><origin xyz="0.0005211609 0.0020814385 0.011676969" rpy="1.9574938 -1.4936363 -1.8952096"/><geometry><mesh filename="../meshes/link1.stl"/></geometry><material name="mat0"/></visual>
+    <collision><origin xyz="0.0005211609 0.0020814385 0.011676969" rpy="1.9574938 -1.4936363 -1.8952096"/><geometry><mesh filename="../meshes/link1.stl"/></geometry></collision>
+    <visual><origin xyz="-0.00045177394 -0.00080157727 0.027874001" rpy="0.11639048 1.5707963 0"/><geometry><mesh filename="../meshes/servo1.stl"/></geometry><material name="mat1"/></visual>
+    <collision><origin xyz="-0.00045177394 -0.00080157727 0.027874001" rpy="0.11639048 1.5707963 0"/><geometry><mesh filename="../meshes/servo1.stl"/></geometry></collision>
+  </link>
+  <link name="link1">
+    <inertial><origin xyz="-0.00021788633 0.02713021 0.044896813" rpy="0 -0 0"/><mass value="0.31114101"/><inertia ixx="0.00034096141" ixy="-2.0516641e-06" ixz="-1.0679379e-05" iyy="0.00017513836" iyz="2.4296558e-06" izz="0.00019134108"/></inertial>
+    <visual><origin xyz="2.6367682e-06 -0.0007421913 -2.27673e-07" rpy="-3.0543262 -1.4155344e-15 1.5707963"/><geometry><mesh filename="../meshes/horn1.stl"/></geometry><material name="mat2"/></visual>
+    <collision><origin xyz="2.6367682e-06 -0.0007421913 -2.27673e-07" rpy="-3.0543262 -1.4155344e-15 1.5707963"/><geometry><mesh filename="../meshes/horn1.stl"/></geometry></collision>
+    <visual><origin xyz="0.00028310356 0.025208087 0.041736462" rpy="-3.1395065 -0.081028503 -3.1403311"/><geometry><mesh filename="../meshes/link2.stl"/></geometry><material name="mat0"/></visual>
+    <collision><origin xyz="0.00028310356 0.025208087 0.041736462" rpy="-3.1395065 -0.081028503 -3.1403311"/><geometry><mesh filename="../meshes/link2.stl"/></geometry></collision>
+    <visual><origin xyz="2.6206498e-06 0.057942297 -2.353809e-07" rpy="2.7052603 -4.7773018e-07 1.5707953"/><geometry><mesh filename="../meshes/pin1.stl"/></geometry><material name="mat3"/></visual>
+    <collision><origin xyz="2.6206498e-06 0.057942297 -2.353809e-07" rpy="2.7052603 -4.7773018e-07 1.5707953"/><geometry><mesh filename="../meshes/pin1.stl"/></geometry></collision>
+    <visual><origin xyz="2.6366124e-06 0.050026 -2.2879336e-07" rpy="-0.43633231 -1.2212453e-15 1.5707963"/><geometry><mesh filename="../meshes/bearing1.stl"/></geometry><material name="mat4"/></visual>
+    <collision><origin xyz="2.6366124e-06 0.050026 -2.2879336e-07" rpy="-0.43633231 -1.2212453e-15 1.5707963"/><geometry><mesh filename="../meshes/bearing1.stl"/></geometry></collision>
+    <visual><origin xyz="0.0070796834 -0.0007421913 0.08089078" rpy="2.443461 -9.9920072e-16 1.5707963"/><geometry><mesh filename="../meshes/horn1.stl"/></geometry><material name="mat2"/></visual>
+    <collision><origin xyz="0.0070796834 -0.0007421913 0.08089078" rpy="2.443461 -9.9920072e-16 1.5707963"/><geometry><mesh filename="../meshes/horn1.stl"/></geometry></collision>
+    <visual><origin xyz="0.0070796989 0.057942297 0.080890787" rpy="-0.43633231 4.7773017e-07 1.5707974"/><geometry><mesh filename="../meshes/pin1.stl"/></geometry><material name="mat3"/></visual>
+    <collision><origin xyz="0.0070796989 0.057942297 0.080890787" rpy="-0.43633231 4.7773017e-07 1.5707974"/><geometry><mesh filename="../meshes/pin1.stl"/></geometry></collision>
+    <visual><origin xyz="0.0070796829 0.050026 0.080890781" rpy="1.1344631 -1.6098234e-15 1.5707963"/><geometry><mesh filename="../meshes/bearing1.stl"/></geometry><material name="mat4"/></visual>
+    <collision><origin xyz="0.0070796829 0.050026 0.080890781" rpy="1.1344631 -1.6098234e-15 1.5707963"/><geometry><mesh filename="../meshes/bearing1.stl"/></geometry></collision>
+  </link>
+  <link name="link2">
+    <inertial><origin xyz="0.04076203 0.030354201 0.0014821496" rpy="0 -0 0"/><mass value="0.81843902"/><inertia ixx="0.00018234285" ixy="2.4203458e-16" ixz="-6.057302e-17" iyy="0.0010175443" iyz="-4.5654918e-06" izz="0.0011265212"/></inertial>
+    <visual><origin xyz="0.0094129026 0.025374425 1.703526e-06" rpy="0.11639048 1.5707963 0"/><geometry><mesh filename="../meshes/servo1.stl"/></geometry><material name="mat1"/></visual>
+    <collision><origin xyz="0.0094129026 0.025374425 1.703526e-06" rpy="0.11639048 1.5707963 0"/><geometry><mesh filename="../meshes/servo1.stl"/></geometry></collision>
+    <visual><origin xyz="0.040762889 0.034269652 0.0036059036" rpy="1.5707558 1.4819888 -1.5708462"/><geometry><mesh filename="../meshes/link3.stl"/></geometry><material name="mat0"/></visual>
+    <collision><origin xyz="0.040762889 0.034269652 0.0036059036" rpy="1.5707558 1.4819888 -1.5708462"/><geometry><mesh filename="../meshes/link3.stl"/></geometry></collision>
+    <visual><origin xyz="0.072111157 0.025374425 1.701634e-06" rpy="0.11639048 -1.5707963 0"/><geometry><mesh filename="../meshes/servo1.stl"/></geometry><material name="mat1"/></visual>
+    <collision><origin xyz="0.072111157 0.025374425 1.701634e-06" rpy="0.11639048 -1.5707963 0"/><geometry><mesh filename="../meshes/servo1.stl"/></geometry></collision>
+  </link>
+  <link name="link3">
+    <inertial><origin xyz="0.014922507 0.024245204 -0.04030788" rpy="0 -0 0"/><mass value="0.45107805"/><inertia ixx="0.00024074176" ixy="4.3866137e-06" ixz="3.020492e-05" iyy="0.00022083417" iyz="-1.2165251e-05" izz="0.00016938392"/></inertial>
+    <visual><origin xyz="1.1157705e-06 -0.0007421913 2.3998829e-06" rpy="2.0071286 -4.4408921e-16 1.5707963"/><geometry><mesh filename="../meshes/horn1.stl"/></geometry><material name="mat2"/></visual>
+    <collision><origin xyz="1.1157705e-06 -0.0007421913 2.3998829e-06" rpy="2.0071286 -4.4408921e-16 1.5707963"/><geometry><mesh filename="../meshes/horn1.stl"/></geometry></collision>
+    <visual><origin xyz="0.011224492 0.023563903 -0.031240676" rpy="0.62157461 0.32746324 -3.129721"/><geometry><mesh filename="../meshes/link4.stl"/></geometry><material name="mat0"/></visual>
+    <collision><origin xyz="0.011224492 0.023563903 -0.031240676" rpy="0.62157461 0.32746324 -3.129721"/><geometry><mesh filename="../meshes/link4.stl"/></geometry></collision>
+    <visual><origin xyz="0.00022768685 0.057942297 -0.00010323794" rpy="-1.9198622 1.0622341e-06 1.5707959"/><geometry><mesh filename="../meshes/pin1.stl"/></geometry><material name="mat3"/></visual>
+    <collision><origin xyz="0.00022768685 0.057942297 -0.00010323794" rpy="-1.9198622 1.0622341e-06 1.5707959"/><geometry><mesh filename="../meshes/pin1.stl"/></geometry></collision>
+    <visual><origin xyz="0.00022769202 0.050026 -0.00010325442" rpy="-1.9198622 -4.2243986e-14 1.5707963"/><geometry><mesh filename="../meshes/bearing1.stl"/></geometry><material name="mat4"/></visual>
+    <collision><origin xyz="0.00022769202 0.050026 -0.00010325442" rpy="-1.9198622 -4.2243986e-14 1.5707963"/><geometry><mesh filename="../meshes/bearing1.stl"/></geometry></collision>
+    <visual><origin xyz="0.018623431 0.025276001 -0.049331971" rpy="2.0362527 -2.1094237e-15 -1.5707963"/><geometry><mesh filename="../meshes/servo1.stl"/></geometry><material name="mat1"/></visual>
+    <collision><origin xyz="0.018623431 0.025276001 -0.049331971" rpy="2.0362527 -2.1094237e-15 -1.5707963"/><geometry><mesh filename="../meshes/servo1.stl"/></geometry></collision>
+  </link>
+  <link name="link4">
+    <inertial><origin xyz="0.028045892 0.00069029305 -0.008970886" rpy="0 -0 0"/><mass value="0.42162916"/><inertia ixx="0.00011748447" ixy="6.7672113e-07" ixz="-9.6676986e-06" iyy="0.0001969267" iyz="-4.6149333e-07" izz="0.00012913982"/></inertial>
+    <visual><origin xyz="0.0007421913 1.8735363e-06 -1.8692896e-06" rpy="-2.3561945 -1.8658353e-16 3.1415927"/><geometry><mesh filename="../meshes/horn1.stl"/></geometry><material name="mat2"/></visual>
+    <collision><origin xyz="0.0007421913 1.8735363e-06 -1.8692896e-06" rpy="-2.3561945 -1.8658353e-16 3.1415927"/><geometry><mesh filename="../meshes/horn1.stl"/></geometry></collision>
+    <visual><origin xyz="0.019957113 0.0018883574 -0.010137289" rpy="-3.109281 -0.018370071 -1.4051896"/><geometry><mesh filename="../meshes/link5.stl"/></geometry><material name="mat0"/></visual>
+    <collision><origin xyz="0.019957113 0.0018883574 -0.010137289" rpy="-3.109281 -0.018370071 -1.4051896"/><geometry><mesh filename="../meshes/link5.stl"/></geometry></collision>
+    <visual><origin xyz="0.028825575 1.874967e-06 -0.0094127413" rpy="-3.0252022 -1.4638662e-15 -1.5707963"/><geometry><mesh filename="../meshes/servo1.stl"/></geometry><material name="mat1"/></visual>
+    <collision><origin xyz="0.028825575 1.874967e-06 -0.0094127413" rpy="-3.0252022 -1.4638662e-15 -1.5707963"/><geometry><mesh filename="../meshes/servo1.stl"/></geometry></collision>
+    <visual><origin xyz="0.054942191 1.8728913e-06 -1.8686664e-06" rpy="1.5707963 1.16901e-15 -3.1415927"/><geometry><mesh filename="../meshes/horn1.stl"/></geometry><material name="mat2"/></visual>
+    <collision><origin xyz="0.054942191 1.8728913e-06 -1.8686664e-06" rpy="1.5707963 1.16901e-15 -3.1415927"/><geometry><mesh filename="../meshes/horn1.stl"/></geometry></collision>
+    <visual><origin xyz="0.06245 4.5152439e-06 1.8759157e-06" rpy="1.5707963 5.727468e-31 1.5707963"/><geometry><box size="0.06 0.024 0.012"/></geometry><material name="mat5"/></visual>
+    <collision><origin xyz="0.06245 4.5152439e-06 1.8759157e-06" rpy="1.5707963 5.727468e-31 1.5707963"/><geometry><box size="0.06 0.024 0.012"/></geometry></collision>
+  </link>
+  <link name="finger_left_link">
+    <inertial><origin xyz="0.025 -0.004 8.9744852e-11" rpy="0 -0 0"/><mass value="0.01"/><inertia ixx="3.6333333e-07" ixy="2.1990763e-21" ixz="-6.2821398e-15" iyy="2.4166667e-06" iyz="-5.7308765e-23" izz="2.1133333e-06"/></inertial>
+    <visual><origin xyz="0.025 -1.2143064e-17 8.9744857e-11" rpy="1.5707963 5.727468e-31 1.5707963"/><geometry><box size="0.006 0.02 0.05"/></geometry><material name="mat6"/></visual>
+    <collision><origin xyz="0.025 -1.2143064e-17 8.9744857e-11" rpy="1.5707963 5.727468e-31 1.5707963"/><geometry><box size="0.006 0.02 0.05"/></geometry></collision>
+  </link>
+  <link name="finger_right_link">
+    <inertial><origin xyz="0.025 0.004 8.9744842e-11" rpy="0 -0 0"/><mass value="0.01"/><inertia ixx="3.6333333e-07" ixy="2.1990763e-21" ixz="-6.2821398e-15" iyy="2.4166667e-06" iyz="-5.7308765e-23" izz="2.1133333e-06"/></inertial>
+    <visual><origin xyz="0.025 -1.5612511e-17 8.9744837e-11" rpy="1.5707963 5.727468e-31 1.5707963"/><geometry><box size="0.006 0.02 0.05"/></geometry><material name="mat6"/></visual>
+    <collision><origin xyz="0.025 -1.5612511e-17 8.9744837e-11" rpy="1.5707963 5.727468e-31 1.5707963"/><geometry><box size="0.006 0.02 0.05"/></geometry></collision>
+  </link>
+  <link name="link_gripper_center"/>
+  <joint name="joint0" type="revolute"><parent link="base_link"/><child link="link0"/><origin xyz="0 0 0.063126" rpy="0 -0 0"/><axis xyz="5.8792768e-17 -1.3322676e-15 1"/><limit lower="-1.5708" upper="1.5708" effort="3.4" velocity="3.0"/></joint>
+  <joint name="joint1" type="revolute"><parent link="link0"/><child link="link1"/><origin xyz="-0.0098652831 -0.025276002 0.027874229" rpy="0 -0 0"/><axis xyz="6.9388939e-18 -1 -1.5543122e-15"/><limit lower="-1.5708" upper="1.5708" effort="3.4" velocity="3.0"/></joint>
+  <joint name="joint2" type="revolute"><parent link="link1"/><child link="link2"/><origin xyz="0.0070776541 -8.3266727e-17 0.080889077" rpy="0 -0 0"/><axis xyz="8.8817842e-16 1 1.0824674e-15"/><limit lower="-1.5708" upper="1.5708" effort="3.4" velocity="3.0"/></joint>
+  <joint name="joint3" type="revolute"><parent link="link2"/><child link="link3"/><origin xyz="0.081520913 -3.469447e-16 -6.9677308e-07" rpy="0 -0 0"/><axis xyz="-2.6645353e-15 -1 -3.3306691e-16"/><limit lower="-1.5708" upper="1.5708" effort="3.4" velocity="3.0"/></joint>
+  <joint name="joint4" type="revolute"><parent link="link3"/><child link="link4"/><origin xyz="0.03614708 0.025274127 -0.069956783" rpy="-7.584128e-15 1.2217305 -1.2375661e-14"/><axis xyz="1 0 0"/><limit lower="-1.5708" upper="1.5708" effort="3.4" velocity="3.0"/></joint>
+  <joint name="finger_left" type="prismatic"><parent link="link4"/><child link="finger_left_link"/><origin xyz="0.06845 0.026004515 1.8759372e-06" rpy="-2.04688e-31 1.4443051e-17 4.9122332e-32"/><axis xyz="-1.0702006e-15 -1 5.9164568e-31"/><limit lower="0" upper="0.022" effort="20.0" velocity="0.2"/></joint>
+  <joint name="finger_right" type="prismatic"><parent link="link4"/><child link="finger_right_link"/><origin xyz="0.06845 -0.025995485 1.8759372e-06" rpy="-2.04688e-31 1.4443051e-17 4.9122332e-32"/><axis xyz="1.0702006e-15 1 -5.9164568e-31"/><limit lower="0" upper="0.022" effort="20.0" velocity="0.2"/></joint>
+  <joint name="joint_gripper_center" type="fixed"><parent link="link4"/><child link="link_gripper_center"/><origin xyz="0.10645 4.5152439e-06 1.8760736e-06" rpy="-2.04688e-31 1.4443051e-17 4.9122332e-32"/></joint>
+</robot>
