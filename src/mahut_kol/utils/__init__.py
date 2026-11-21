@@ -1,1 +1,0 @@
-"""MahutKol yardımcı araçlar paketi."""
